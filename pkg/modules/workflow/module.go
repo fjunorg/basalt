@@ -34,6 +34,13 @@ func New() *Module {
 	return &Module{store: NewMemStore(), defs: NewMemDefStore()}
 }
 
+// NewWithStores 注入持久化实现（实例 + 定义，GORM 落盘、重启恢复）；
+// New() 的纯内存路径保留（测试/演示场景可退回）。OnFinish 回调由
+// 各业务模块在 Init 期注册，进程重启即随装配重建，无需持久化。
+func NewWithStores(store Store, defs DefStore) *Module {
+	return &Module{store: store, defs: defs}
+}
+
 // OnFinish 注册流程终态回调（财务等业务单据联动通道）。
 func (m *Module) OnFinish(h func(ctx context.Context, in Instance)) {
 	m.onFinish = append(m.onFinish, h)

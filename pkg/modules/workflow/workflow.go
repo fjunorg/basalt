@@ -56,19 +56,19 @@ type Step struct {
 // Instance 是一次流程实例。Steps 为展开后的串行步骤；
 // Approvers/Mode 为当前步骤的兼容视图字段。
 type Instance struct {
-	ID           string     `json:"id"`
-	BusinessKey  string     `json:"business_key"`
-	Summary      string     `json:"summary"`
-	DefinitionID string     `json:"definition_id,omitempty"`
-	Steps        []Step     `json:"steps"`
+	ID           string     `json:"id" gorm:"primaryKey;size:40"`
+	BusinessKey  string     `json:"business_key" gorm:"size:64;index"`
+	Summary      string     `json:"summary" gorm:"size:255"`
+	DefinitionID string     `json:"definition_id,omitempty" gorm:"size:40;index"`
+	Steps        []Step     `json:"steps" gorm:"serializer:json"`
 	StepIndex    int        `json:"step_index"`
-	CreatorID    string     `json:"creator_id"`
-	Status       string     `json:"status"`
+	CreatorID    string     `json:"creator_id" gorm:"size:40;index"`
+	Status       string     `json:"status" gorm:"size:16;index"`
 	CreatedAt    time.Time  `json:"created_at"`
 	FinishedAt   *time.Time `json:"finished_at,omitempty"`
 	// 兼容视图：当前步审批人与模式（单步场景即全部审批人）。
-	Approvers []string `json:"approvers"`
-	Mode      string   `json:"mode"`
+	Approvers []string `json:"approvers" gorm:"serializer:json"`
+	Mode      string   `json:"mode" gorm:"size:16"`
 }
 
 // CurrentStep 返回当前待办步骤。
@@ -79,8 +79,8 @@ func (in *Instance) CurrentStep() *Step {
 	return nil
 }
 
-// refreshView 同步兼容视图字段到当前步。
-func (in *Instance) refreshView() {
+// RefreshView 同步兼容视图字段到当前步。
+func (in *Instance) RefreshView() {
 	if s := in.CurrentStep(); s != nil {
 		in.Approvers, in.Mode = s.Approvers, s.Mode
 	} else {
@@ -89,7 +89,7 @@ func (in *Instance) refreshView() {
 }
 
 // normalizeSteps 校验并规范化步骤（默认会签）。
-func normalizeSteps(steps []Step) ([]Step, error) {
+func NormalizeSteps(steps []Step) ([]Step, error) {
 	if len(steps) == 0 {
 		return nil, ErrNoSteps
 	}
@@ -113,11 +113,14 @@ func normalizeSteps(steps []Step) ([]Step, error) {
 }
 
 // Action 是一次审批动作（不可变历史）。StepIndex 标记动作所属步骤。
+// Seq 是持久化层的追加顺序主键（内存实现以切片顺序保证），对 API
+// 透明（json:"-"）。
 type Action struct {
-	InstanceID string    `json:"instance_id"`
-	ActorID    string    `json:"actor_id"`
-	Act        string    `json:"act"` // approve | reject | cancel | delegate
-	Comment    string    `json:"comment,omitempty"`
+	Seq        int64     `json:"-" gorm:"primaryKey;autoIncrement"`
+	InstanceID string    `json:"instance_id" gorm:"size:40;index"`
+	ActorID    string    `json:"actor_id" gorm:"size:40"`
+	Act        string    `json:"act" gorm:"size:16"` // approve | reject | cancel | delegate
+	Comment    string    `json:"comment,omitempty" gorm:"size:255"`
 	StepIndex  int       `json:"step_index"`
 	Time       time.Time `json:"time"`
 }
@@ -165,17 +168,26 @@ type record struct {
 
 func NewMemStore() *MemStore { return &MemStore{byID: map[string]*record{}} }
 
-func (s *MemStore) Create(_ context.Context, in Instance) error {
+// PrepareInstance 规范化实例（兼容包装 + 步骤校验 + 视图同步），
+// 供各持久化实现的 Create 路径复用（语义单一来源）。
+func PrepareInstance(in *Instance) error {
 	// 兼容：无 Steps 但给了 Approvers → 包装为单步。
 	if len(in.Steps) == 0 && len(in.Approvers) > 0 {
 		in.Steps = []Step{{Approvers: in.Approvers, Mode: in.Mode}}
 	}
-	steps, err := normalizeSteps(in.Steps)
+	steps, err := NormalizeSteps(in.Steps)
 	if err != nil {
 		return err
 	}
 	in.Steps = steps
-	in.refreshView()
+	in.RefreshView()
+	return nil
+}
+
+func (s *MemStore) Create(_ context.Context, in Instance) error {
+	if err := PrepareInstance(&in); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.byID[in.ID] = &record{inst: in}
@@ -200,30 +212,44 @@ func (s *MemStore) Act(_ context.Context, instanceID, actorID, act, comment stri
 	if !ok {
 		return Instance{}, ErrNotFound
 	}
-	in := r.inst
+	in, action, err := ApplyAction(r.inst, r.actions, actorID, act, comment)
+	if err != nil {
+		return Instance{}, err
+	}
+	action.InstanceID = instanceID
+	r.inst, r.actions = in, append(r.actions, action)
+	return in, nil
+}
+
+// ApplyAction 是审批动作的状态机核心（单一事实来源，内存与 GORM
+// 持久化实现共用）：对实例与动作历史的不可变快照执行动作，返回
+// 推进后的实例副本与应追加的动作记录；不触碰任何存储。
+// 注意 Action.StepIndex 记录动作完成后实例所处步骤（沿用历史语义：
+// 触发本步完成的通过动作记新步序号）。
+func ApplyAction(in Instance, actions []Action, actorID, act, comment string) (Instance, Action, error) {
 	switch act {
 	case "cancel":
 		if in.CreatorID != actorID {
-			return Instance{}, ErrNotCreator
+			return Instance{}, Action{}, ErrNotCreator
 		}
 		if in.Status != StatusPending {
-			return Instance{}, ErrAlreadyDone
+			return Instance{}, Action{}, ErrAlreadyDone
 		}
 		in.Status, in.FinishedAt = StatusCanceled, now()
 	case "approve", "reject":
 		if in.Status != StatusPending {
-			return Instance{}, ErrAlreadyDone
+			return Instance{}, Action{}, ErrAlreadyDone
 		}
 		step := in.CurrentStep()
 		if step == nil || !contains(step.Approvers, actorID) {
-			return Instance{}, ErrNotApprover
+			return Instance{}, Action{}, ErrNotApprover
 		}
-		if acted(r.actions, actorID, in.StepIndex) {
-			return Instance{}, ErrAlreadyDone
+		if acted(actions, actorID, in.StepIndex) {
+			return Instance{}, Action{}, ErrAlreadyDone
 		}
 		if act == "reject" {
 			in.Status, in.FinishedAt = StatusRejected, now()
-		} else if step.Mode == ModeOrSign || allApproved(step.Approvers, r.actions, in.StepIndex, actorID) {
+		} else if step.Mode == ModeOrSign || allApproved(step.Approvers, actions, in.StepIndex, actorID) {
 			// 本步完成 → 推进下一步或终态
 			in.StepIndex++
 			if in.StepIndex >= len(in.Steps) {
@@ -231,15 +257,13 @@ func (s *MemStore) Act(_ context.Context, instanceID, actorID, act, comment stri
 			}
 		}
 	default:
-		return Instance{}, fmt.Errorf("workflow: unknown act %q", act)
+		return Instance{}, Action{}, fmt.Errorf("workflow: unknown act %q", act)
 	}
-	in.refreshView()
-	r.inst = in
-	r.actions = append(r.actions, Action{
-		InstanceID: instanceID, ActorID: actorID, Act: act, Comment: comment,
+	in.RefreshView()
+	return in, Action{
+		ActorID: actorID, Act: act, Comment: comment,
 		StepIndex: in.StepIndex, Time: time.Now().UTC(),
-	})
-	return in, nil
+	}, nil
 }
 
 // Delegate 转办：当前步审批人 from 将自己的审批权转让给 to
@@ -251,16 +275,27 @@ func (s *MemStore) Delegate(_ context.Context, instanceID, fromUserID, toUserID 
 	if !ok {
 		return Instance{}, ErrNotFound
 	}
-	in := r.inst
+	in, action, err := ApplyDelegate(r.inst, fromUserID, toUserID)
+	if err != nil {
+		return Instance{}, err
+	}
+	action.InstanceID = instanceID
+	r.inst, r.actions = in, append(r.actions, action)
+	return in, nil
+}
+
+// ApplyDelegate 是转办的状态机核心（与 ApplyAction 同理，内存与
+// GORM 持久化实现共用），不触碰任何存储。
+func ApplyDelegate(in Instance, fromUserID, toUserID string) (Instance, Action, error) {
 	if in.Status != StatusPending {
-		return Instance{}, ErrAlreadyDone
+		return Instance{}, Action{}, ErrAlreadyDone
 	}
 	step := in.CurrentStep()
 	if step == nil || !contains(step.Approvers, fromUserID) {
-		return Instance{}, ErrNotApprover
+		return Instance{}, Action{}, ErrNotApprover
 	}
 	if toUserID == "" || contains(step.Approvers, toUserID) {
-		return Instance{}, ErrBadDelegate
+		return Instance{}, Action{}, ErrBadDelegate
 	}
 	for i, uid := range step.Approvers {
 		if uid == fromUserID {
@@ -268,13 +303,11 @@ func (s *MemStore) Delegate(_ context.Context, instanceID, fromUserID, toUserID 
 			break
 		}
 	}
-	in.refreshView()
-	r.inst = in
-	r.actions = append(r.actions, Action{
-		InstanceID: instanceID, ActorID: fromUserID, Act: "delegate",
+	in.RefreshView()
+	return in, Action{
+		ActorID: fromUserID, Act: "delegate",
 		Comment: "-> " + toUserID, StepIndex: in.StepIndex, Time: time.Now().UTC(),
-	})
-	return in, nil
+	}, nil
 }
 
 func (s *MemStore) ListTodo(_ context.Context, userID string) ([]Instance, error) {
@@ -330,7 +363,7 @@ func NewMemDefStore() *MemDefStore {
 }
 
 func (s *MemDefStore) CreateDef(_ context.Context, d Definition) error {
-	steps, err := normalizeSteps(d.Steps)
+	steps, err := NormalizeSteps(d.Steps)
 	if err != nil {
 		return err
 	}
@@ -349,7 +382,7 @@ func (s *MemDefStore) CreateDef(_ context.Context, d Definition) error {
 }
 
 func (s *MemDefStore) UpdateDef(_ context.Context, d Definition) error {
-	steps, err := normalizeSteps(d.Steps)
+	steps, err := NormalizeSteps(d.Steps)
 	if err != nil {
 		return err
 	}
