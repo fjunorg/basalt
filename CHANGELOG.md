@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-30
+
+Admin Console 视觉风格对齐 Semi Design——纯样式变更，技术栈保持 Element Plus（非组件库迁移）。
+
+### 新增
+
+- **Semi 风格 token 单一来源**（`console/src/styles/semi-tokens.css`，两层
+  结构）：① `--semi-*` 原生 token 层（色板/语义色/字体栈/圆角/阴影，逐条
+  注释真源 semi-theme-default 对照）；② `--el-*` 变量映射层（primary
+  #0064FA 色系、四级文本色、极浅描边、圆角 3/6/12px、elevated 阴影、Semi
+  中文字体栈；Element Plus hover 浅化 → Semi 深化语义对齐）。
+
+### 变更
+
+- **Console 全局视觉对齐 Semi Design 风格**（技术栈保持 Element Plus）：
+  侧边栏浅色化（白底 + 右边框 + 块状高亮选中项，移除深色硬编码）、主区与
+  页面底色 #F9F9F9、登录页改浅灰底白卡片大圆角；全仓 6 种硬编码色全部
+  token 化，22 个页面共享全局 token 层，无新旧风格混杂；项目无既有暗色
+  模式，本次不新增。纯样式改动：权限守卫/SSE/表单交互逻辑零触碰；主 CSS
+  9.55KB → 13.77KB（+4.22KB 为 token 层），dist 总体积 1104KB → 1108KB。
+- 二进制默认版本基线 bump 至 1.4.0（随发布 ldflags 覆盖）。
+
 ## [1.4.0] - 2026-10-30
 
 租户 dedicated-db 全量路由、国密 SM2 套件（Provider + 审计链尾签名）、等保基线自查命令与 Console 租户隔离管理。

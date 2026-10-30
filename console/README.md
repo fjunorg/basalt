@@ -1,6 +1,10 @@
 # /console — Admin Console（L3 前端控制台）
 
-**状态：v0.1 已交付（随 v1.1.0 发布；v1.2.0 完成 TypeScript 全量迁移与 Element Plus 按需导入；v1.3.0 新增 Agent 控制台；v1.4.0 租户页支持隔离模式与库引用配置）。** 构建产物 `dist/` 已入库并经 `go:embed` 嵌入二进制。
+**状态：v0.1 已交付（随 v1.1.0 发布；v1.2.0 完成 TypeScript 全量迁移与 Element Plus 按需导入；v1.3.0 新增 Agent 控制台；v1.4.0 租户页支持隔离模式与库引用配置；v1.5.0 视觉风格对齐 Semi Design）。** 构建产物 `dist/` 已入库并经 `go:embed` 嵌入二进制。
+
+## 视觉风格
+
+**Semi Design 风格，技术栈保持 Element Plus（非组件库迁移）**：v1.5.0 起经 `src/styles/semi-tokens.css` 的 **token 定制机制**对齐——该文件为 token 单一来源，两层结构：`--semi-*` 原生 token 层（逐条注释 semi-theme-default 真源对照）+ `--el-*` 变量映射层（主色 #0064FA 色系、文本/描边/圆角/阴影/中文字体栈，并做 EP hover→Semi 深化语义对齐）。全仓硬编码色已全部 token 化，22 个页面共享全局 token 层；无暗色模式。调整视觉时只改 token 文件，不逐页改样式。
 
 ## 技术栈
 
