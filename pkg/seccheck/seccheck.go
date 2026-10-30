@@ -59,6 +59,8 @@ type Options struct {
 	GitignoreCovers   bool // .gitignore 已忽略 .env
 	AIProviderKey     string
 	SM2PrivateKey     string
+	// SSO/三方登录
+	SSOSocialKey string // BASALT_SSO_DINGTALK_CLIENT_SECRET（钉钉先行；新提供方追加）
 	// 审计链核验（返回断点序号；0=链完整）
 	ChainVerify func(dsn string) (int, error)
 }
@@ -90,6 +92,7 @@ func Run(o Options) Report {
 	add(checkAuditChain(o))
 	add(checkTenantIsolation(o))
 	add(checkSecretsHygiene(o))
+	add(checkSSOSocial(o))
 	switch {
 	case r.Failed > 0:
 		r.ExitCode = 2
@@ -263,6 +266,32 @@ func checkSecretsHygiene(o Options) Result {
 		}
 		res.Detail += "；BASALT_AI_PROVIDER_KEY 长度不足 20（弱密钥）"
 		res.Advice = strings.TrimSpace(res.Advice + " 更换长随机密钥")
+	}
+	return res
+}
+
+// checkSSOSocial 三方登录（SSO）凭据卫生（OAuth2/SSO 扩展，P0#3）。
+// 关注点：三方凭据强度与明文暴露面；.env 明文与 gitignore 覆盖情况
+// 复用 secrets-hygiene 同一判定结构。
+func checkSSOSocial(o Options) Result {
+	res := Result{Name: "sso-social-secrets"}
+	switch {
+	case o.EnvFileExists && o.EnvFileHasSecrets && !o.GitignoreCovers && o.SSOSocialKey != "":
+		res.Status = Fail
+		res.Detail = "三方登录密钥经 .env 明文提供且未被 .gitignore 覆盖——有入库风险"
+		res.Advice = ".gitignore 增加 .env；密钥改用部署平台环境注入"
+	case o.SSOSocialKey == "":
+		res.Status = Pass
+		res.Detail = "三方登录未启用（无凭据暴露面）"
+		return res
+	case len(o.SSOSocialKey) < 20:
+		res.Status = Warn
+		res.Detail = "三方登录密钥长度不足 20（弱密钥）"
+		res.Advice = "更换长随机密钥（钉钉 secret 通常 ≥32 字符）"
+		return res
+	default:
+		res.Status = Pass
+		res.Detail = "三方登录密钥经环境变量注入（长度合规）"
 	}
 	return res
 }

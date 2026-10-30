@@ -198,3 +198,35 @@ func TestFormatIncludesSummary(t *testing.T) {
 		}
 	}
 }
+
+// TestSSOSocialSecrets 三方登录（SSO）凭据三态（OAuth2/SSO 扩展）。
+func TestSSOSocialSecrets(t *testing.T) {
+	// 基线：未配置三方登录 → PASS（无暴露面）。
+	if res := find(Run(runOpts()), "sso-social-secrets"); res.Status != Pass {
+		t.Fatalf("no social key = %+v", res)
+	}
+	// 配置 + 合规长度 → PASS。
+	o := runOpts()
+	o.SSOSocialKey = "ding-secret-0123456789abcdef0123456789"
+	if res := find(Run(o), "sso-social-secrets"); res.Status != Pass {
+		t.Fatalf("healthy social key = %+v", res)
+	}
+	// 弱密钥 → WARN。
+	o.SSOSocialKey = "short-key"
+	if res := find(Run(o), "sso-social-secrets"); res.Status != Warn || !strings.Contains(res.Detail, "弱密钥") {
+		t.Fatalf("weak social key = %+v", res)
+	}
+	// .env 明文 + 未 gitignore + 已配置三方登录 → FAIL。
+	o = runOpts()
+	o.SSOSocialKey = "ding-secret-0123456789abcdef0123456789"
+	o.EnvFileExists, o.EnvFileHasSecrets, o.GitignoreCovers = true, true, false
+	if res := find(Run(o), "sso-social-secrets"); res.Status != Fail {
+		t.Fatalf("env leak = %+v", res)
+	}
+	// .env 明文但已 gitignore → 不 FAIL（WARN 路径归 secrets-hygiene，
+	// SSO 项在已配置且长度合规时保持 PASS）。
+	o.GitignoreCovers = true
+	if res := find(Run(o), "sso-social-secrets"); res.Status != Pass {
+		t.Fatalf("gitignored env = %+v", res)
+	}
+}

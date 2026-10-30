@@ -20,6 +20,7 @@ const Version = "0.3.0"
 type Module struct {
 	users  UserStore
 	roles  RoleStore
+	sso    SSOStore
 	facade *Facade
 	boot   bootstrap
 }
@@ -27,12 +28,17 @@ type Module struct {
 type bootstrap struct{ username, password string }
 
 func New() *Module {
-	return &Module{users: NewMemUserStore(), roles: NewMemRoleStore()}
+	return &Module{users: NewMemUserStore(), roles: NewMemRoleStore(), sso: NewMemSSOStore()}
 }
 
-// NewWithStores 允许注入自定义存储（测试与未来 GORM 实现）。
+// NewWithStores 允许注入自定义存储（测试与 GORM 装配）。
 func NewWithStores(users UserStore, roles RoleStore) *Module {
-	return &Module{users: users, roles: roles}
+	return &Module{users: users, roles: roles, sso: NewMemSSOStore()}
+}
+
+// NewWithStoresAndSSO 显式注入 SSO 存储（GORM 持久化装配）。
+func NewWithStoresAndSSO(users UserStore, roles RoleStore, sso SSOStore) *Module {
+	return &Module{users: users, roles: roles, sso: sso}
 }
 
 // Users/Roles/Facade 供依赖模块（如 tenant）按声明式依赖取用；
@@ -67,6 +73,17 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 	issuer := NewTokenIssuer(cfg.JWTSecret, cfg.TokenTTL)
 	m.facade = NewFacade(m.users, m.roles, issuer, a.Logger())
 	NewHandler(m.facade).RegisterRoutes(a.Router())
+
+	// SSO/OAuth2 子域（可注入装配）：SSOStore 为 nil 时跳过（最小装配）。
+	if m.sso != nil {
+		social := NewSocialRegistry()
+		// 三方登录提供方：凭据 env 注入，未配置不下发（端点 404）。
+		if dt, err := NewDingTalkProviderFromEnv(); err == nil {
+			social.Register(dt)
+		}
+		NewSSOHandler(m.facade, m.sso, cfg.SSOAuthCodeTTL, cfg.SSORefreshTTL, social, cfg.JWTSecret).
+			RegisterSSORoutes(a.Router())
+	}
 	m.boot = bootstrap{username: cfg.BootstrapAdminUsername, password: cfg.BootstrapAdminPassword}
 	return nil
 }
@@ -114,6 +131,7 @@ func (*Module) Describe() app.ModuleInfo {
 		Version: Version,
 		Permissions: []string{
 			PermUserCreate, PermUserList, PermUserGet, PermUserStatus, PermRoleManage,
+			PermSSOManage,
 		},
 	}
 }

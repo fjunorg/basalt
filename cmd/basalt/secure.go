@@ -53,6 +53,7 @@ func gatherOptions() seccheck.Options {
 		TenantRouting: os.Getenv("BASALT_TENANT_ROUTING"),
 		AIProviderKey: os.Getenv("BASALT_AI_PROVIDER_KEY"),
 		SM2PrivateKey: os.Getenv("BASALT_SM2_PRIVATE_KEY"),
+		SSOSocialKey:  os.Getenv("BASALT_SSO_DINGTALK_CLIENT_SECRET"),
 		ChainVerify:   verifyAuditChain(cfg),
 	}
 	// .env 明文密钥扫描
@@ -103,7 +104,7 @@ func scanEnvFile(path string) (exists, hasSecrets bool) {
 	exists = true
 	for _, line := range strings.Split(string(b), "\n") {
 		line = strings.TrimSpace(line)
-		for _, key := range []string{"BASALT_AI_PROVIDER_KEY", "BASALT_SM2_PRIVATE_KEY", "BASALT_JWT_SECRET"} {
+		for _, key := range []string{"BASALT_AI_PROVIDER_KEY", "BASALT_SM2_PRIVATE_KEY", "BASALT_JWT_SECRET", "BASALT_SSO_DINGTALK_CLIENT_SECRET"} {
 			if strings.HasPrefix(line, key+"=") && strings.TrimSpace(strings.TrimPrefix(line, key+"=")) != "" {
 				hasSecrets = true
 			}

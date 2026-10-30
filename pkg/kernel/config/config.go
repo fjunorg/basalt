@@ -42,6 +42,10 @@ type Config struct {
 	// BootstrapAdminPassword 首启引导管理员口令。生产环境必须显式配置
 	// 且不得等于默认值（与 JWTSecret 同一条 SECURITY.md 基线）。
 	BootstrapAdminPassword string
+	// SSOAuthCodeTTL OAuth2 授权码有效期（默认 5 分钟，≤10 分钟为佳）。
+	SSOAuthCodeTTL time.Duration
+	// SSORefreshTTL OAuth2 refresh token 有效期（默认 14 天，轮换式）。
+	SSORefreshTTL time.Duration
 	// Modules 模块级配置表，键为模块名。当前仅透传，强类型化随各模块推进。
 	Modules map[string]map[string]string
 }
@@ -92,6 +96,16 @@ func Load() *Config {
 	if v := os.Getenv("BASALT_TOKEN_TTL_MIN"); v != "" {
 		if min, err := strconv.Atoi(v); err == nil && min > 0 {
 			c.TokenTTL = time.Duration(min) * time.Minute
+		}
+	}
+	if v := os.Getenv("BASALT_SSO_CODE_TTL_SEC"); v != "" {
+		if sec, err := strconv.Atoi(v); err == nil && sec > 0 {
+			c.SSOAuthCodeTTL = time.Duration(sec) * time.Second
+		}
+	}
+	if v := os.Getenv("BASALT_SSO_REFRESH_TTL_HOUR"); v != "" {
+		if hr, err := strconv.Atoi(v); err == nil && hr > 0 {
+			c.SSORefreshTTL = time.Duration(hr) * time.Hour
 		}
 	}
 	return c

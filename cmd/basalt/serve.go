@@ -149,7 +149,7 @@ func newServeCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("quota store: %w", err)
 				}
-				idm = identity.NewWithStores(st.UserStore(), st.RoleStore())
+				idm = identity.NewWithStoresAndSSO(st.UserStore(), st.RoleStore(), st.SSOStore())
 				tnt = tenant.NewWithStore(st.TenantStore())
 				adm = audit.NewWithStore(chain)
 				gw = gateway.NewWithQuotaStore(qs)

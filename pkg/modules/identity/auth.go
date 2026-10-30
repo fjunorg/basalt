@@ -36,6 +36,26 @@ func (t *TokenIssuer) Issue(u User, now time.Time) (string, time.Time, error) {
 	return s, exp, err
 }
 
+// IssueOAuth2 为 OAuth2 流程（SSO）签发令牌：与 Issue 同一密钥/算法/
+// 过期语义（AuthMiddleware 校验路径不变），claims 附加 client_id 与
+// scope 以区分「Console 直登」与「OAuth2 授权」两类令牌。subject 为
+// 授权用户 ID（授权码/refresh 路径）或 "client:<client_id>" 机器身份
+// （客户端凭证路径）。
+func (t *TokenIssuer) IssueOAuth2(u User, clientID string, scopes []string, now time.Time) (string, time.Time, error) {
+	exp := now.Add(t.ttl)
+	claims := jwt.MapClaims{
+		"sub":       u.ID,
+		"exp":       exp.Unix(),
+		"iat":       now.Unix(),
+		"iss":       "basalt/identity",
+		"client_id": clientID,
+		"scope":     strings.Join(scopes, " "),
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	s, err := tok.SignedString(t.secret)
+	return s, exp, err
+}
+
 type ctxKey int
 
 const userIDKey ctxKey = iota
