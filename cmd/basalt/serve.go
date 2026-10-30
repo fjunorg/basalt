@@ -184,6 +184,8 @@ func newServeCmd() *cobra.Command {
 					ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
 					ragM = rag.NewWithStore(routed.RagStore(), ragFiles, ragEmb)
 					agentM = agent.NewWithStore(routed.AgentStore())
+					notifyM = notify.NewWithStore(routed.NotifyStore())
+					menuM = menu.NewWithStore(routed.MenuStore())
 				} else {
 					orgM = org.NewWithStore(st.OrgStore())
 					dictM = dict.NewWithStore(st.DictStore())
@@ -198,8 +200,14 @@ func newServeCmd() *cobra.Command {
 					ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
 					ragM = rag.NewWithStore(st.RagStore(), ragFiles, ragEmb)
 					agentM = agent.NewWithStore(st.AgentStore())
+					notifyM = notify.NewWithStore(st.NotifyStore())
+					menuM = menu.NewWithStore(st.MenuStore())
 				}
 				safetyM = aisafety.NewWithStore(st.AISafetyStore())
+				// 平台级模块固定主库（与 identity/tenant/audit 同边界，
+				// 不入租户路由）：套餐/错误码。
+				tpgM = tenantpkg.NewWithStore(st.TenantPkgStore())
+				ecM = errcode.NewWithStore(st.ErrCodeStore())
 			case "postgres", "opengauss":
 				// openGauss 走 postgres 协议方言；驱动（gorm.io/driver/
 				// postgres 或信创社区驱动）接线后在此 OpenDB 注入即可，
