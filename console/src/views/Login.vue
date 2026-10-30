@@ -20,7 +20,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { api, token } from '../api'
+import { api, token, perms } from '../api'
 
 const username = ref('admin')
 const password = ref('')
@@ -36,10 +36,10 @@ async function doLogin() {
       body: { username: username.value, password: password.value },
     })
     token.set(data.token)
-    // 缓存权限点供按钮级控制（每次登录刷新）
+    // 缓存权限点供路由守卫与按钮级控制（每次登录刷新）
     try {
       const me = await api('/api/v1/identity/me')
-      localStorage.setItem('basalt_perms', JSON.stringify(me.permissions || []))
+      perms.set(me.permissions || [])
     } catch { /* 权限拉取失败不阻断登录 */ }
     router.push('/')
   } catch (e) {

@@ -7,15 +7,15 @@
 
         <el-sub-menu index="sys">
           <template #title><el-icon><Setting /></el-icon>系统管理</template>
-          <el-menu-item v-if="perm('identity:user:list')" index="/users">用户管理</el-menu-item>
-          <el-menu-item v-if="perm('identity:role:manage')" index="/roles">角色管理</el-menu-item>
-          <el-menu-item v-if="perm('org:dept:list') || perm('org:post:list')" index="/org">部门与岗位</el-menu-item>
-          <el-menu-item v-if="perm('tenant:list')" index="/tenants">租户管理</el-menu-item>
-          <el-menu-item v-if="perm('dict:type:list')" index="/dict">字典管理</el-menu-item>
-          <el-menu-item v-if="perm('config:list')" index="/config">参数配置</el-menu-item>
-          <el-menu-item v-if="perm('notice:list')" index="/notices">通知公告</el-menu-item>
-          <el-menu-item v-if="perm('file:list')" index="/files">文件管理</el-menu-item>
-          <el-menu-item v-if="perm('workflow:def:manage')" index="/wfdefs">流程定义</el-menu-item>
+          <el-menu-item v-if="canRoute('/users')" index="/users">用户管理</el-menu-item>
+          <el-menu-item v-if="canRoute('/roles')" index="/roles">角色管理</el-menu-item>
+          <el-menu-item v-if="canRoute('/org')" index="/org">部门与岗位</el-menu-item>
+          <el-menu-item v-if="canRoute('/tenants')" index="/tenants">租户管理</el-menu-item>
+          <el-menu-item v-if="canRoute('/dict')" index="/dict">字典管理</el-menu-item>
+          <el-menu-item v-if="canRoute('/config')" index="/config">参数配置</el-menu-item>
+          <el-menu-item v-if="canRoute('/notices')" index="/notices">通知公告</el-menu-item>
+          <el-menu-item v-if="canRoute('/files')" index="/files">文件管理</el-menu-item>
+          <el-menu-item v-if="canRoute('/wfdefs')" index="/wfdefs">流程定义</el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="work">
@@ -29,8 +29,8 @@
 
         <el-sub-menu index="mon">
           <template #title><el-icon><Monitor /></el-icon>系统监控</template>
-          <el-menu-item v-if="perm('audit:read')" index="/audit">审计链</el-menu-item>
-          <el-menu-item v-if="perm('job:list')" index="/jobs">定时任务</el-menu-item>
+          <el-menu-item v-if="canRoute('/audit')" index="/audit">审计链</el-menu-item>
+          <el-menu-item v-if="canRoute('/jobs')" index="/jobs">定时任务</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -52,22 +52,29 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Odometer, Setting, Briefcase, Monitor } from '@element-plus/icons-vue'
-import { api, token, hasPerm } from '../api'
+import { api, token, perms, hasPerm } from '../api'
 
 const me = ref(null)
 const router = useRouter()
 
-const perm = (p) => hasPerm(me.value?.permissions, p)
+// 菜单显隐与路由守卫共用路由 meta.perms 这一份映射（main.js 定义），
+// 管理项按权限点显隐；工作台五页面向个人（auth-only）不做菜单级收敛。
+const canRoute = (path) => {
+  const need = router.resolve(path).meta?.perms || []
+  return !need.length || need.some((p) => hasPerm(me.value?.permissions, p))
+}
 
 onMounted(async () => {
   try {
     me.value = await api('/api/v1/identity/me')
+    // 回写权限快照：角色变更后刷新页面即生效，保持守卫数据与后端一致
+    perms.set(me.value?.permissions || [])
   } catch { /* 401 已由 api 层跳登录 */ }
 })
 
 function logout() {
   token.clear()
-  localStorage.removeItem('basalt_perms')
+  perms.clear()
   router.push('/login')
 }
 </script>

@@ -5,6 +5,21 @@ export const token = {
   clear: () => localStorage.removeItem('basalt_token'),
 }
 
+// 权限点快照：登录与用户信息刷新时写入，路由守卫与侧边菜单共用同一数据源。
+// get 返回 null 表示从未写入（区别于空数组 = 确认无任何权限点）。
+export const perms = {
+  get: () => {
+    try {
+      const raw = localStorage.getItem('basalt_perms')
+      return raw === null ? null : JSON.parse(raw)
+    } catch {
+      return null
+    }
+  },
+  set: (p) => localStorage.setItem('basalt_perms', JSON.stringify(p || [])),
+  clear: () => localStorage.removeItem('basalt_perms'),
+}
+
 export async function api(path, { method = 'GET', body } = {}) {
   const res = await fetch(path, {
     method,
