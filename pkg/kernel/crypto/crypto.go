@@ -19,17 +19,26 @@ type Provider interface {
 	Algorithm() string
 }
 
-// 算法标识。信创/等保场景选 SM3；非国密环境用 SHA-256。
+// 算法标识。信创/等保场景选 SM3/SM2；非国密环境用 SHA-256。
 const (
 	AlgoSM3    = "sm3"
+	AlgoSM2    = "sm2" // SM3 摘要 + SM2 签名（国密套件）
 	AlgoSHA256 = "sha256"
 )
 
 // NewProvider 按算法标识构造 Provider；未知标识回落 SHA-256 并由
-// 调用方日志可见（Algorithm()）。
+// 调用方日志可见（Algorithm()）。sm2 分支经 NewSM2ProviderFromEnv
+// 取密钥（未配置则进程内生成，Generated() 可判别）。
 func NewProvider(algo string) Provider {
-	if algo == AlgoSM3 {
+	switch algo {
+	case AlgoSM3:
 		return sm3Provider{}
+	case AlgoSM2:
+		p, err := NewSM2ProviderFromEnv()
+		if err != nil {
+			return sha256Provider{}
+		}
+		return p
 	}
 	return sha256Provider{}
 }
