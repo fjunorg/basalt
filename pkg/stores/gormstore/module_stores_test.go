@@ -379,7 +379,7 @@ func TestAllModulesWithGORMStores(t *testing.T) {
 		notice.NewWithStore(s.NoticeStore()),
 		file.NewWithStore(s.FileStore(), storage),
 		job.NewWithStore(a.Logger(), s.JobStore()),
-		workflow.New(),
+		workflow.NewWithStores(s.WorkflowStore(), s.WorkflowDefStore()),
 		finance.NewWithStore(s.FinanceStore()),
 		document.NewWithStore(s.DocumentStore()),
 		contract.NewWithStore(s.ContractStore()),
