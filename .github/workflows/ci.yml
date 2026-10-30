@@ -1,0 +1,85 @@
+# Basalt CI：多 Go 版本测试矩阵 + golangci-lint + govulncheck + 信创交叉编译产物。
+# 兑现 README/CHANGELOG 宣称的工程能力（评估报告阻塞项 #2）。
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (go ${{ matrix.go-version }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # go.mod 要求 go 1.26.0（下限）；stable 覆盖最新稳定版
+        go-version: ['1.26.x', 'stable']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Vet
+        run: go vet ./...
+      - name: Test (race)
+        run: go test -race ./...
+
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
+  vulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  build:
+    name: cross-build ${{ matrix.goos }}/${{ matrix.goarch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 信创矩阵：amd64（x86 通用）· arm64（鲲鹏）· loong64（龙芯）
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: loong64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: Build
+        run: |
+          VERSION=$(git describe --tags --always --dirty)
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
+            -o dist/basalt-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/basalt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: basalt-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/basalt-${{ matrix.goos }}-${{ matrix.goarch }}
+          if-no-files-found: error

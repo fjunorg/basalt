@@ -1,0 +1,17 @@
+# 缩小构建上下文：源码与配置之外全部排除（dist/node_modules 在容器内重建）
+.git
+.github
+bin
+dist
+docs
+uploads
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.DS_Store
+.env
+.env.*
+!.env.example
+console/node_modules
+console/dist
