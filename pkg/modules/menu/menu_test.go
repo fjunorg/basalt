@@ -108,9 +108,17 @@ func TestMenuSeedListAndMyMenus(t *testing.T) {
 	if me.Source != "backend" || len(me.Menus) == 0 || len(me.Perms) == 0 {
 		t.Fatalf("me = %d menus, %d perms, source=%s", len(me.Menus), len(me.Perms), me.Source)
 	}
-	// admin 通配权限：可见全部启用种子
-	if len(me.Menus) < 18 {
-		t.Fatalf("admin visible = %d", len(me.Menus))
+	// 分组种子：根为三个目录，叶子递归计数 = 全部种子
+	var count func(ns []*menu.MenuNode) int
+	count = func(ns []*menu.MenuNode) int {
+		n := 0
+		for _, x := range ns {
+			n += 1 + count(x.Children)
+		}
+		return n
+	}
+	if len(me.Menus) != 3 || count(me.Menus) < 23 {
+		t.Fatalf("roots = %d total = %d（应 3 目录 23 项）", len(me.Menus), count(me.Menus))
 	}
 }
 

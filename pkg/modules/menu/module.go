@@ -292,24 +292,34 @@ func (m *Module) setRoleMenus(w http.ResponseWriter, r *http.Request) {
 // Seeds 是 22 页静态路由的种子菜单（与 console/src/main.ts 一一对应；
 // 菜单管理页不入种子——前端固定渲染防死锁，见契约 §4）。
 var Seeds = []Menu{
-	{ID: "m-overview", Icon: "Odometer", Name: "概览", Path: "/overview", Sort: 10, Enabled: true},
-	{ID: "m-users", Icon: "User", Name: "用户管理", Path: "/users", Perm: "identity:user:list", Sort: 20, Enabled: true},
-	{ID: "m-roles", Icon: "Key", Name: "角色管理", Path: "/roles", Perm: "identity:role:manage", Sort: 30, Enabled: true},
-	{ID: "m-tenants", Icon: "OfficeBuilding", Name: "租户管理", Path: "/tenants", Perm: "tenant:list", Sort: 40, Enabled: true},
-	{ID: "m-org", Icon: "Share", Name: "部门与岗位", Path: "/org", Perm: "org:dept:list", Sort: 50, Enabled: true},
-	{ID: "m-dict", Icon: "Collection", Name: "字典管理", Path: "/dict", Perm: "dict:type:list", Sort: 60, Enabled: true},
-	{ID: "m-config", Icon: "Setting", Name: "参数配置", Path: "/config", Perm: "config:list", Sort: 70, Enabled: true},
-	{ID: "m-notices", Icon: "Bell", Name: "通知公告", Path: "/notices", Perm: "notice:list", Sort: 80, Enabled: true},
-	{ID: "m-notify", Icon: "Message", Name: "通知中心", Path: "/notify", Perm: "notify:list", Sort: 90, Enabled: true},
-	{ID: "m-files", Icon: "Files", Name: "文件管理", Path: "/files", Perm: "file:list", Sort: 100, Enabled: true},
-	{ID: "m-jobs", Icon: "Timer", Name: "定时任务", Path: "/jobs", Perm: "job:list", Sort: 110, Enabled: true},
-	{ID: "m-wfdefs", Icon: "Operation", Name: "流程定义", Path: "/wfdefs", Perm: "workflow:def:manage", Sort: 120, Enabled: true},
-	{ID: "m-approvals", Icon: "List", Name: "审批中心", Path: "/approvals", Sort: 130, Enabled: true},
-	{ID: "m-finance", Icon: "Wallet", Name: "财务中心", Path: "/finance", Sort: 140, Enabled: true},
-	{ID: "m-documents", Icon: "Document", Name: "公文中心", Path: "/documents", Sort: 150, Enabled: true},
-	{ID: "m-contracts", Icon: "Briefcase", Name: "合同管理", Path: "/contracts", Sort: 160, Enabled: true},
-	{ID: "m-audit", Icon: "DataAnalysis", Name: "审计链", Path: "/audit", Perm: "audit:read", Sort: 170, Enabled: true},
-	{ID: "m-ai", Icon: "Cpu", Name: "AI 控制台", Path: "/ai", Sort: 180, Enabled: true},
-	{ID: "m-agent-defs", Icon: "UserFilled", Name: "Agent 管理", Path: "/agent-defs", Perm: "agent:read", Sort: 190, Enabled: true},
-	{ID: "m-agent-run", Icon: "Platform", Name: "Agent 运行", Path: "/agent-run", Perm: "agent:run", Sort: 200, Enabled: true},
+	// 三个分组目录（对齐 Console 静态三分组 IA）
+	{ID: "m-group-work", Name: "工作台", Path: "/group-work", Icon: "Menu", Sort: 10, Enabled: true},
+	{ID: "m-group-sys", Name: "系统管理", Path: "/group-sys", Icon: "SetUp", Sort: 20, Enabled: true},
+	{ID: "m-group-mon", Name: "系统监控", Path: "/group-mon", Icon: "Monitor", Sort: 30, Enabled: true},
+
+	// 工作台
+	{ID: "m-overview", Icon: "Odometer", Name: "概览", Path: "/overview", ParentID: "m-group-work", Sort: 10, Enabled: true},
+	{ID: "m-approvals", Icon: "List", Name: "审批中心", Path: "/approvals", ParentID: "m-group-work", Sort: 20, Enabled: true},
+	{ID: "m-finance", Icon: "Wallet", Name: "财务中心", Path: "/finance", ParentID: "m-group-work", Sort: 30, Enabled: true},
+	{ID: "m-documents", Icon: "Document", Name: "公文中心", Path: "/documents", ParentID: "m-group-work", Sort: 40, Enabled: true},
+	{ID: "m-contracts", Icon: "Briefcase", Name: "合同管理", Path: "/contracts", ParentID: "m-group-work", Sort: 50, Enabled: true},
+	{ID: "m-ai", Icon: "Cpu", Name: "AI 控制台", Path: "/ai", ParentID: "m-group-work", Sort: 60, Enabled: true},
+	{ID: "m-agent-defs", Icon: "UserFilled", Name: "Agent 管理", Path: "/agent-defs", Perm: "agent:read", ParentID: "m-group-work", Sort: 70, Enabled: true},
+	{ID: "m-agent-run", Icon: "Platform", Name: "Agent 运行", Path: "/agent-run", Perm: "agent:run", ParentID: "m-group-work", Sort: 80, Enabled: true},
+
+	// 系统管理
+	{ID: "m-users", Icon: "User", Name: "用户管理", Path: "/users", Perm: "identity:user:list", ParentID: "m-group-sys", Sort: 10, Enabled: true},
+	{ID: "m-roles", Icon: "Key", Name: "角色管理", Path: "/roles", Perm: "identity:role:manage", ParentID: "m-group-sys", Sort: 20, Enabled: true},
+	{ID: "m-tenants", Icon: "OfficeBuilding", Name: "租户管理", Path: "/tenants", Perm: "tenant:list", ParentID: "m-group-sys", Sort: 30, Enabled: true},
+	{ID: "m-org", Icon: "Share", Name: "部门与岗位", Path: "/org", Perm: "org:dept:list", ParentID: "m-group-sys", Sort: 40, Enabled: true},
+	{ID: "m-dict", Icon: "Collection", Name: "字典管理", Path: "/dict", Perm: "dict:type:list", ParentID: "m-group-sys", Sort: 50, Enabled: true},
+	{ID: "m-config", Icon: "Setting", Name: "参数配置", Path: "/config", Perm: "config:list", ParentID: "m-group-sys", Sort: 60, Enabled: true},
+	{ID: "m-notices", Icon: "Bell", Name: "通知公告", Path: "/notices", Perm: "notice:list", ParentID: "m-group-sys", Sort: 70, Enabled: true},
+	{ID: "m-notify", Icon: "Message", Name: "通知中心", Path: "/notify", Perm: "notify:list", ParentID: "m-group-sys", Sort: 80, Enabled: true},
+	{ID: "m-files", Icon: "Files", Name: "文件管理", Path: "/files", Perm: "file:list", ParentID: "m-group-sys", Sort: 90, Enabled: true},
+	{ID: "m-jobs", Icon: "Timer", Name: "定时任务", Path: "/jobs", Perm: "job:list", ParentID: "m-group-sys", Sort: 100, Enabled: true},
+	{ID: "m-wfdefs", Icon: "Operation", Name: "流程定义", Path: "/wfdefs", Perm: "workflow:def:manage", ParentID: "m-group-sys", Sort: 110, Enabled: true},
+
+	// 系统监控
+	{ID: "m-audit", Icon: "DataAnalysis", Name: "审计链", Path: "/audit", Perm: "audit:read", ParentID: "m-group-mon", Sort: 10, Enabled: true},
 }
