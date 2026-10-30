@@ -26,6 +26,7 @@ const (
 	ModTenant   = "tenant"
 	ModWorkflow = "workflow"
 	ModAIGw     = "ai-gateway"
+	ModAISafety = "ai-safety"
 	ModAudit    = "audit"
 )
 
