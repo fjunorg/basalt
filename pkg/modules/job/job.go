@@ -45,7 +45,9 @@ type Job struct {
 	NextRun     time.Time  `json:"next_run"`
 }
 
-// RunRecord 是一次执行记录（保留最近 N 条/任务，内存环形）。
+// RunRecord 是一次执行记录（保留最近 N 条/任务，内存环形，
+// 不持久化——重启后运行历史清零属设计语义；Job 行上的
+// LastRun/LastResult/LastErr 保留最近一次执行摘要）。
 type RunRecord struct {
 	JobID    string    `json:"job_id"`
 	Start    time.Time `json:"start"`
@@ -56,12 +58,22 @@ type RunRecord struct {
 
 const keepRuns = 20
 
+// Store 抽象任务定义与运行态持久化（可选；nil 表示纯内存，测试/演示路径）。
+// 任务定义（ID/Name/IntervalSec）以代码注册为基准，持久层保存的是
+// 运行态：Enabled / LastRun / LastResult / LastErr / NextRun。
+type Store interface {
+	GetJob(ctx context.Context, id string) (Job, error)
+	SaveJob(ctx context.Context, j Job) error // UPSERT 全量运行态
+	ListJobs(ctx context.Context) ([]Job, error)
+}
+
 type Manager struct {
 	mu      sync.Mutex
 	jobs    map[string]*Job
 	runners map[string]Runner
 	runs    map[string][]RunRecord // jobID -> 倒序记录
 	logger  *slog.Logger
+	store   Store // 可选持久化；nil 为纯内存
 }
 
 func NewManager(logger *slog.Logger) *Manager {
@@ -71,19 +83,58 @@ func NewManager(logger *slog.Logger) *Manager {
 	}
 }
 
+// NewManagerWithStore 构造带持久化的管理器：任务启停与执行进度落盘，
+// 重启后经 Register 恢复运行态（见 Register 的恢复语义说明）。
+func NewManagerWithStore(logger *slog.Logger, s Store) *Manager {
+	m := NewManager(logger)
+	m.store = s
+	return m
+}
+
 // Register 注册任务（默认停用，等待启用）。ID 即调度键。
+//
+// 持久化模式下的重启恢复语义：
+//   - 任务定义（Name/Description/IntervalSec）以代码注册值为准——代码是
+//     定义的唯一来源，升级改间隔即生效并回写持久层；
+//   - 运行态（Enabled/LastRun/LastResult/LastErr）从持久层恢复；
+//   - NextRun 恢复后若已过期（停机期间错过触发点），不补跑停机期间
+//     错过的执行，重排为 now+interval，从当前时间起按间隔继续——
+//     轻量调度器的可预期语义（避免停机 N 小时后启动突发补偿执行）。
 func (m *Manager) Register(id, name, desc string, intervalSec int, run Runner) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.runners[id] = run
-	if _, ok := m.jobs[id]; !ok {
-		m.jobs[id] = &Job{ID: id, Name: name, Description: desc,
-			IntervalSec: intervalSec, Enabled: false,
-			NextRun: time.Now().UTC().Add(time.Duration(intervalSec) * time.Second)}
+	if _, ok := m.jobs[id]; ok {
+		return // 重复注册：仅刷新 runner
+	}
+	now := time.Now().UTC()
+	j := &Job{ID: id, Name: name, Description: desc,
+		IntervalSec: intervalSec, Enabled: false,
+		NextRun: now.Add(time.Duration(intervalSec) * time.Second)}
+	if m.store != nil {
+		if saved, err := m.store.GetJob(context.Background(), id); err == nil {
+			j.Enabled = saved.Enabled
+			j.LastRun, j.LastResult, j.LastErr = saved.LastRun, saved.LastResult, saved.LastErr
+			j.NextRun = saved.NextRun
+			if !j.NextRun.After(now) {
+				j.NextRun = now.Add(time.Duration(intervalSec) * time.Second)
+			}
+		}
+		if err := m.store.SaveJob(context.Background(), *j); err != nil {
+			m.logWarn("job persist failed", id, err)
+		}
+	}
+	m.jobs[id] = j
+}
+
+func (m *Manager) logWarn(msg, jobID string, err error) {
+	if m.logger != nil {
+		m.logger.Warn(msg, "job", jobID, "err", err)
 	}
 }
 
-// SetEnabled 启停任务。
+// SetEnabled 启停任务（持久化模式下先落盘成功再更新内存，保证
+// 返回 nil 即已持久）。
 func (m *Manager) SetEnabled(id string, enabled bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -91,8 +142,16 @@ func (m *Manager) SetEnabled(id string, enabled bool) error {
 	if !ok {
 		return ErrNotFound
 	}
-	j.Enabled = enabled
-	j.NextRun = time.Now().UTC().Add(time.Duration(j.IntervalSec) * time.Second)
+	updated := *j
+	updated.Enabled = enabled
+	updated.NextRun = time.Now().UTC().Add(time.Duration(updated.IntervalSec) * time.Second)
+	if m.store != nil {
+		if err := m.store.SaveJob(context.Background(), updated); err != nil {
+			m.logWarn("job persist failed", id, err)
+			return err
+		}
+	}
+	*j = updated
 	return nil
 }
 
@@ -127,6 +186,13 @@ func (m *Manager) exec(ctx context.Context, j *Job, run Runner) {
 	m.runs[j.ID] = append([]RunRecord{rec}, m.runs[j.ID]...)
 	if len(m.runs[j.ID]) > keepRuns {
 		m.runs[j.ID] = m.runs[j.ID][:keepRuns]
+	}
+	if m.store != nil {
+		// 执行结果落盘：失败仅记日志，不影响本次执行语义
+		//（下次状态变更时会再次同步）。
+		if perr := m.store.SaveJob(context.Background(), *j); perr != nil {
+			m.logWarn("job persist failed", j.ID, perr)
+		}
 	}
 	m.mu.Unlock()
 	if m.logger != nil {
@@ -200,6 +266,12 @@ type Module struct {
 }
 
 func New(logger *slog.Logger) *Module { return &Module{mgr: NewManager(logger)} }
+
+// NewWithStore 注入持久化实现（运行态落盘、重启恢复）；
+// New() 的纯内存路径保留（测试/演示场景可退回）。
+func NewWithStore(logger *slog.Logger, s Store) *Module {
+	return &Module{mgr: NewManagerWithStore(logger, s)}
+}
 
 func (*Module) Name() string           { return "job" }
 func (*Module) Version() string        { return Version }
