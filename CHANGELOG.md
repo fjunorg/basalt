@@ -4,6 +4,46 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-30
+
+AI 基础设施双模块（内容安全、RAG）落地，Admin Console 前端债（TS 迁移、按需导入）清偿。
+
+### 新增
+
+- **ai-safety（aisafety v0.1）**：L2 AI 内容安全模块（docs/03 P0 合规
+  空白项兑现）——敏感词库管理、按租户可配审核策略、AI 调用链内容审核；
+  三类命中动作：reject（输入侧 422 拦截 / 输出侧断流）、replace（命中词
+  替换放行，替换词可配）、mark（观察模式，命中记入审计链）；策略回落链：
+  租户策略 → 平台默认 → 内置默认 reject（默认从严）；GORM 持久化并入
+  OpenDB 迁移；独立单测。
+- **ai-gateway 内容安全集成**：审核接口经 Inspector 注入（ai-safety
+  消费；未启用时零开销直通），输入/输出侧命中按租户策略拦截/替换/标记。
+- **RAG（rag v0.1）**：L2 知识库与检索增强模块——知识库 → 文档 → 切片
+  → 向量化 → 相似检索完整管道。向量存储起步方案：embedding 以 blob 落
+  sqlite（与业务数据同一恢复面，重启后检索直接可用），检索在内存做余弦
+  相似度排序；专用向量库（milvus 等）后续经 VectorSearcher 接口注入，
+  模块层零改动。向量化客户端 OpenAI 兼容 /v1/embeddings，复用
+  BASALT_AI_PROVIDER_* 环境变量族（向量子模型经 BASALT_AI_EMBED_MODEL
+  指定，未配置时向量化步骤明确报错而非静默跳过）。文档登记双通道：直接
+  文本输入，或引用 file 模块上传文件（FileResolver 抽象，file 包零改动）；
+  GORM 持久化 + 独立单测。
+- **serve 装配扩至 16 模块**：aisafety/rag 接入 sqlite GORM 装配，
+  memory 分支保留零依赖降级路径。
+- **Admin Console TypeScript 全量迁移**：src 全量 TS（tsconfig strict +
+  noUnused*，20 个视图行类型按实际消费字段定义，无 any 兜底），构建链路
+  接入 vue-tsc --noEmit 类型检查；RouteMeta 声明合并（title/perms）。
+- **Element Plus 按需导入**：unplugin-vue-components +
+  ElementPlusResolver（importStyle: css）；命令式 API（ElMessage/
+  ElMessageBox）经 src/element.ts 集中导出并手动注入样式；v-loading
+  经 ElLoading 插件注册；ElConfigProvider 注入中文 locale；
+  components.d.ts 入库。体积实测（构建输出）：主 chunk gzip
+  350.63KB → 64.13KB（-81.7%），dist 总体积 1544KB → 1072KB
+  （-30.6%），主 CSS 361.41KB → 9.55KB。
+
+### 变更
+
+- 二进制默认版本注入基线 bump 至 1.1.0（main.version，随发布 ldflags 覆盖）。
+
 ## [1.1.0] - 2026-10-30
 
 Admin Console 交付、平台业务模块群（9 个）实装、全模块 GORM 持久化与工程资产兑现。

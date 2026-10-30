@@ -1,14 +1,23 @@
 # /console — Admin Console（L3 前端控制台）
 
-**状态：v0.1 已交付（随 v1.1.0 发布）。** 构建产物 `dist/` 已入库并经 `go:embed` 嵌入二进制。
+**状态：v0.1 已交付（随 v1.1.0 发布；v1.2.0 完成 TypeScript 全量迁移与 Element Plus 按需导入）。** 构建产物 `dist/` 已入库并经 `go:embed` 嵌入二进制。
 
 ## 技术栈
 
-- Vue 3 + Vite + **Element Plus** + vue-router（**当前为 JS 实现**）
+- Vue 3 + **TypeScript**（tsconfig strict + noUnused*，构建链路含 `vue-tsc --noEmit` 类型检查，视图行类型按实际消费字段定义、无 any 兜底）+ Vite + **Element Plus（按需导入）** + vue-router
+- Element Plus 经 unplugin-vue-components + ElementPlusResolver 按需注入（importStyle: css）；命令式 API（ElMessage/ElMessageBox）经 `src/element.ts` 集中导出并手动注入样式；components.d.ts 随库入库
 - 构建产物 `go:embed` 嵌入 Go 二进制，单文件交付；全部静态资源离线打包（私有化无外网场景）
 - hash 路由 + 相对资源路径，任意挂载路径可用
 - **菜单与路由按权限点动态显隐**：页面级权限映射（路由 `meta.perms`，满足任一权限点即可进入），菜单显隐与路由守卫共用同一映射；无权限访问落 403 引导页（Forbidden）
 - 技术选型决策记录见 [docs/04-frontend-ui-evaluation.md](../docs/04-frontend-ui-evaluation.md)；预留社区版 React Console 的契约生态位
+
+### 按需导入体积收益（构建输出实测）
+
+| 指标 | 基线（JS + 全量引入） | TS 迁移后 | 按需导入后 |
+|------|----------------------|-----------|------------|
+| 主 chunk gzip | 350.60KB | 350.63KB（编译期，无变化） | **64.13KB（-81.7%）** |
+| dist 总体积 | 1544KB | — | **1072KB（-30.6%）** |
+| 主 CSS | 361.41KB | — | **9.55KB** |
 
 ## 页面清单（src/views，共 20 个）
 
@@ -26,7 +35,6 @@
 cd console && npm install && npm run build
 ```
 
-## 已知限制（v0.1）
+## 已知限制
 
-- 未迁移 TypeScript（TS 迁移待办，当前为 JS 实现）
-- Element Plus 全量引入，主 chunk gzip 约 350KB（按需导入优化待办）
+- v1.1.0 披露的两项前端债（JS 未迁移 TS、Element Plus 全量引入 ~350KB）已于 v1.2.0 全部清偿，当前无已知限制。
