@@ -1,8 +1,8 @@
 # golangci-lint v2 配置（CI lint 任务消费，见 .github/workflows/ci.yml）
 #
 # 策略：标准五件套（errcheck/govet/ineffassign/staticcheck/unused）全开，
-# 仅外科式豁免基线 0f8dc03 的已知存量问题——CI 对一切新增违规保持红灯。
-# 存量清偿后删除对应豁免规则即可（清单已同步 backend-dev）。
+# 仅保留两类风格性豁免（Close 惯例、测试助手风格）——CI 对一切违规保持红灯。
+# 生产代码存量豁免已随 2fba6f6 清偿完毕并移除。
 version: "2"
 
 linters:
@@ -17,13 +17,6 @@ linters:
         - (mime/multipart.File).Close
   exclusions:
     rules:
-      # —— 基线 0f8dc03 生产代码存量（3 项风格类 + 3 项疑似死代码）——
-      - linters: [staticcheck]
-        text: "QF1001: could apply De Morgan's law"
-      - linters: [staticcheck]
-        text: "(ST1023|QF1011):"                  # serve.go 显式类型声明（版本间检查 ID 有漂移）
-      - linters: [unused]
-        text: "(chatCompletionsReq|field mu|newID) is unused"
       # —— 测试文件：`rec, data = do(...)` 丢弃 rec 是项目既有测试助手风格
       # （SA4006 / ineffassign / 未用测试助手在 *_test.go 内成批存在）——
       - path: _test\.go
