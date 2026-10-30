@@ -59,12 +59,34 @@ func newServeCmd() *cobra.Command {
 			web.MountHealth(a.Router())
 			a.Router().MountSPA(console.FS())
 
+			// 上传目录（file 模块文件本体落此磁盘目录；元数据随所选
+			// 存储装配持久化，二者共同构成重启恢复态）。
+			uploadDir := os.Getenv("BASALT_UPLOAD_DIR")
+			if uploadDir == "" {
+				uploadDir = "uploads"
+			}
+			localStorage, err := file.NewLocalStorage(uploadDir)
+			if err != nil {
+				return fmt.Errorf("upload dir: %w", err)
+			}
+
 			// 存储装配：memory（默认零依赖）或 sqlite（持久化：
-			// 身份/租户/审计链/配额全部落盘，重启延续）。
+			// 全部 15 个模块落盘，重启延续）。postgres/openGauss 经
+			// gormstore.OpenDB 注入对应方言连接（驱动接线随信创
+			// 真机矩阵落地，见 docs/01），装配结构已就绪。
 			var idm *identity.Module
 			var tnt *tenant.Module
 			var adm *audit.Module
 			var gw *gateway.Module = gateway.New()
+			var orgM *org.Module
+			var dictM *dict.Module
+			var sysM *sysconfig.Module
+			var notM *notice.Module
+			var fileM *file.Module
+			var jobM *job.Module
+			var finM *finance.Module
+			var docM *document.Module
+			var conM *contract.Module
 			switch cfg.Storage {
 			case "sqlite":
 				dsn := cfg.DBDSN
@@ -87,10 +109,33 @@ func newServeCmd() *cobra.Command {
 				tnt = tenant.NewWithStore(st.TenantStore())
 				adm = audit.NewWithStore(chain)
 				gw = gateway.NewWithQuotaStore(qs)
-			default: // memory
+				orgM = org.NewWithStore(st.OrgStore())
+				dictM = dict.NewWithStore(st.DictStore())
+				sysM = sysconfig.NewWithStore(st.SysConfigStore())
+				notM = notice.NewWithStore(st.NoticeStore())
+				fileM = file.NewWithStore(st.FileStore(), localStorage)
+				jobM = job.NewWithStore(a.Logger(), st.JobStore())
+				finM = finance.NewWithStore(st.FinanceStore())
+				docM = document.NewWithStore(st.DocumentStore())
+				conM = contract.NewWithStore(st.ContractStore())
+			case "postgres", "opengauss":
+				// openGauss 走 postgres 协议方言；驱动（gorm.io/driver/
+				// postgres 或信创社区驱动）接线后在此 OpenDB 注入即可，
+				// 9 模块 store 与 sqlite 分支共用同一 OpenDB 迁移路径。
+				return fmt.Errorf("storage %s: driver wiring pending (use sqlite/memory for now)", cfg.Storage)
+			default: // memory（测试/演示可退回的零依赖路径）
 				idm = identity.New()
 				tnt = tenant.New()
 				adm = audit.New()
+				orgM = org.New()
+				dictM = dict.New()
+				sysM = sysconfig.New()
+				notM = notice.New()
+				fileM = file.New(localStorage)
+				jobM = job.New(a.Logger())
+				finM = finance.New()
+				docM = document.New()
+				conM = contract.New()
 			}
 
 			// OpenAI 兼容提供方装配（私有化一等公民）：
@@ -98,19 +143,11 @@ func newServeCmd() *cobra.Command {
 			if u := os.Getenv("BASALT_AI_PROVIDER_URL"); u != "" {
 				gw.RegisterProvider(os.Getenv("BASALT_AI_PROVIDER_NAME"), u, os.Getenv("BASALT_AI_PROVIDER_KEY"))
 			}
-			uploadDir := os.Getenv("BASALT_UPLOAD_DIR")
-			if uploadDir == "" {
-				uploadDir = "uploads"
-			}
-			localStorage, err := file.NewLocalStorage(uploadDir)
-			if err != nil {
-				return fmt.Errorf("upload dir: %w", err)
-			}
 			for _, m := range []app.Module{
 				idm, tnt, adm,
-				org.New(), dict.New(), sysconfig.New(), notice.New(),
-				file.New(localStorage), job.New(a.Logger()),
-				workflow.New(), finance.New(), document.New(), contract.New(), gw,
+				orgM, dictM, sysM, notM,
+				fileM, jobM,
+				workflow.New(), finM, docM, conM, gw,
 			} {
 				if err := a.Registry().Register(m); err != nil {
 					return err
