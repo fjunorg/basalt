@@ -28,6 +28,8 @@
             <el-menu-item v-if="canRoute('/wfdefs')" index="/wfdefs">流程定义</el-menu-item>
             <el-menu-item v-if="canRoute('/notify')" index="/notify">通知中心</el-menu-item>
             <el-menu-item v-if="canRoute('/sso/apps')" index="/sso/apps">SSO 应用</el-menu-item>
+            <el-menu-item v-if="canRoute('/tenant-pkgs')" index="/tenant-pkgs">租户套餐</el-menu-item>
+            <el-menu-item v-if="canRoute('/errcodes')" index="/errcodes">错误码</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="work">
@@ -45,6 +47,7 @@
             <template #title><el-icon><Monitor /></el-icon>系统监控</template>
             <el-menu-item v-if="canRoute('/audit')" index="/audit">审计链</el-menu-item>
             <el-menu-item v-if="canRoute('/jobs')" index="/jobs">定时任务</el-menu-item>
+            <el-menu-item v-if="canRoute('/online-users')" index="/online-users">在线用户</el-menu-item>
           </el-sub-menu>
         </template>
       </el-menu>

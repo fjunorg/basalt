@@ -65,6 +65,12 @@ const routes: RouteRecordRaw[] = [
       { path: 'notify', component: () => import('./views/NotifyCenter.vue'), meta: { title: '通知中心', perms: ['notify:list'] } },
       // SSO 应用管理（契约 sso-api-contract.md §1）
       { path: 'sso/apps', component: () => import('./views/SsoApps.vue'), meta: { title: 'SSO 应用', perms: ['identity:sso:manage'] } },
+      // 平台小项包三页（platform-small-pack，pkg 实际 API）：
+      // 在线用户（identity:session:manage）/ 租户套餐（tenantpkg:manage）
+      // / 错误码查询（errcode:list，写操作按钮级 manage）
+      { path: 'online-users', component: () => import('./views/OnlineUsers.vue'), meta: { title: '在线用户', perms: ['identity:session:manage'] } },
+      { path: 'tenant-pkgs', component: () => import('./views/TenantPkgs.vue'), meta: { title: '租户套餐', perms: ['tenantpkg:manage'] } },
+      { path: 'errcodes', component: () => import('./views/ErrCodes.vue'), meta: { title: '错误码', perms: ['errcode:list'] } },
       { path: 'forbidden', component: () => import('./views/Forbidden.vue'), meta: { title: '无权访问' } },
     ],
   },
