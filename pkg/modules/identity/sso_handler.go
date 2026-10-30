@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -499,28 +500,34 @@ func (h *SSOHandler) socialAuthorizeURL(w http.ResponseWriter, r *http.Request) 
 }
 
 // socialCallback 三方回调：换身份 → 自动注册/复用用户 → 签发平台 token。
-// 响应与 Console /login 同构（token + expires_at），前端同通道消费。
+// 回跳形态（与 Console 前端契约，方案 a）：浏览器由三方引导至此，后端以
+// 302 回跳 Console 回调页完成登录闭环（相对路径，同源部署零配置）——
+//
+//	成功：/#/sso/social/callback?token=...&expires_at=<unix秒>
+//	失败：/#/sso/social/callback?error=...&error_description=...
+//
+// 前端回调页统一消费（成功存 token 走既有登录通道；失败渲染错误态）。
 func (h *SSOHandler) socialCallback(w http.ResponseWriter, r *http.Request) {
 	provider := r.PathValue("provider")
 	p, err := h.social.Get(provider)
 	if err != nil {
-		web.Err(w, http.StatusNotFound, "provider not registered")
+		h.redirectSocialResult(w, r, "provider_not_found", "provider not registered")
 		return
 	}
 	code, state := r.URL.Query().Get("code"), r.URL.Query().Get("state")
 	if code == "" {
-		web.Err(w, http.StatusBadRequest, "missing code")
+		h.redirectSocialResult(w, r, "missing_code", "authorization code missing")
 		return
 	}
 	if !h.verifyState(state) {
 		h.f.audit(r, "sso.social.rejected", "provider", provider, "reason", "bad_state")
-		web.Err(w, http.StatusBadRequest, "invalid state")
+		h.redirectSocialResult(w, r, "bad_state", "invalid state")
 		return
 	}
 	si, err := p.Exchange(r.Context(), code)
 	if err != nil {
 		h.f.audit(r, "sso.social.rejected", "provider", provider, "reason", "exchange_failed")
-		web.Err(w, http.StatusUnauthorized, "provider exchange failed")
+		h.redirectSocialResult(w, r, "exchange_failed", "provider exchange failed")
 		return
 	}
 	// 身份映射：username = social:<provider>:<openid>（≤64 字符）。
@@ -533,7 +540,7 @@ func (h *SSOHandler) socialCallback(w http.ResponseWriter, r *http.Request) {
 		// 首次登录：自动注册（随机口令防本地口令登录——三方身份是唯一通道）。
 		hash, herr := bcryptHash(randHex(32))
 		if herr != nil {
-			web.Err(w, http.StatusInternalServerError, "internal error")
+			h.redirectSocialResult(w, r, "server_error", "internal error")
 			return
 		}
 		u = User{
@@ -546,22 +553,44 @@ func (h *SSOHandler) socialCallback(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:    time.Now().UTC(),
 		}
 		if err := h.f.users.Create(r.Context(), u); err != nil {
-			web.Err(w, http.StatusInternalServerError, "internal error")
+			h.redirectSocialResult(w, r, "server_error", "internal error")
 			return
 		}
 	}
 	if u.Status != StatusActive {
 		h.f.audit(r, "sso.social.rejected", "provider", provider, "reason", "disabled")
-		web.Err(w, http.StatusForbidden, "account disabled")
+		h.redirectSocialResult(w, r, "account_disabled", "account disabled")
 		return
 	}
 	tok, exp, err := h.f.issuer.Issue(u, time.Now().UTC())
 	if err != nil {
-		web.Err(w, http.StatusInternalServerError, "internal error")
+		h.redirectSocialResult(w, r, "server_error", "internal error")
 		return
 	}
 	h.f.audit(r, "sso.social.login", "provider", provider, "user_id", u.ID, "username", u.Username)
-	web.OK(w, loginResp{Token: tok, ExpiresAt: exp})
+	q := url.Values{}
+	q.Set("token", tok)
+	q.Set("state", state)
+	q.Set("expires_at", strconv.FormatInt(exp.Unix(), 10))
+	http.Redirect(w, r, consoleSocialCallback+"?"+q.Encode(), http.StatusFound)
+}
+
+// consoleSocialCallback 是 Console 三方登录回调页（hash 路由，相对路径）。
+const consoleSocialCallback = "/#/sso/social/callback"
+
+// redirectSocialResult 失败路径的 302 回跳（前端统一错误态渲染）。
+// state 原样回传（供前端 sessionStorage 比对，双层防伪）。
+func (h *SSOHandler) redirectSocialResult(w http.ResponseWriter, r *http.Request, ecode, desc string) {
+	state := r.URL.Query().Get("state")
+	q := url.Values{}
+	q.Set("error", ecode)
+	if desc != "" {
+		q.Set("error_description", desc)
+	}
+	if state != "" {
+		q.Set("state", state)
+	}
+	http.Redirect(w, r, consoleSocialCallback+"?"+q.Encode(), http.StatusFound)
 }
 
 // signState / verifyState：state = nonce.hmac(nonce)，密钥复用 JWT secret

@@ -596,21 +596,26 @@ func TestSocialLoginDingTalkMock(t *testing.T) {
 		}
 	}
 
-	// 2. callback（坏 state 拒绝）。
+	// 2. callback（坏 state → 302 回跳错误态）。
 	bad := "/api/v1/identity/sso/social/dingtalk/callback?code=c-1&state=forged.0123456789abcdef"
-	if rec, _ := doGetJSON(t, f.handler, bad, ""); rec.Code != http.StatusBadRequest {
-		t.Fatalf("forged state: %d", rec.Code)
+	recBad := httptest.NewRecorder()
+	reqBad := httptest.NewRequest(http.MethodGet, bad, nil)
+	f.handler.ServeHTTP(recBad, reqBad)
+	if recBad.Code != http.StatusFound || !strings.Contains(recBad.Header().Get("Location"), "error=bad_state") {
+		t.Fatalf("forged state: %d %s", recBad.Code, recBad.Header().Get("Location"))
 	}
 
-	// 3. callback 合法 state → 自动注册 + 平台 token。
+	// 3. callback 合法 state → 302 回跳 Console 回调页（token + expires_at）。
 	cb := "/api/v1/identity/sso/social/dingtalk/callback?code=c-1&state=" + url.QueryEscape(state)
-	rec2, m2 := doGetJSON(t, f.handler, cb, "")
-	if rec2.Code != http.StatusOK {
-		t.Fatalf("callback: %d %s", rec2.Code, rec2.Body.String())
+	rec2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodGet, cb, nil)
+	f.handler.ServeHTTP(rec2, req2)
+	loc := rec2.Header().Get("Location")
+	if rec2.Code != http.StatusFound || !strings.HasPrefix(loc, "/#/sso/social/callback?") {
+		t.Fatalf("callback redirect: %d %q", rec2.Code, loc)
 	}
-	d2, _ := m2["data"].(map[string]any)
-	if d2["token"] == "" {
-		t.Fatal("no platform token")
+	if !strings.Contains(loc, "token=") || !strings.Contains(loc, "expires_at=") {
+		t.Fatalf("callback params missing: %q", loc)
 	}
 	// 用户已注册。
 	if _, err := f.users.GetByUsername(context.Background(), "social:dingtalk:openid-abc"); err != nil {
@@ -622,8 +627,10 @@ func TestSocialLoginDingTalkMock(t *testing.T) {
 
 	// 4. 二次登录复用同一用户。
 	users, _ := f.users.List(context.Background())
-	rec3, _ := doGetJSON(t, f.handler, cb, "")
-	if rec3.Code != http.StatusOK {
+	rec3 := httptest.NewRecorder()
+	req3 := httptest.NewRequest(http.MethodGet, cb, nil)
+	f.handler.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusFound {
 		t.Fatalf("second callback: %d", rec3.Code)
 	}
 	users2, _ := f.users.List(context.Background())

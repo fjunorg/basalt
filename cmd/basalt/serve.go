@@ -21,6 +21,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/contract"
 	"github.com/basalt-go/basalt/pkg/modules/dict"
 	"github.com/basalt-go/basalt/pkg/modules/document"
+	"github.com/basalt-go/basalt/pkg/modules/errcode"
 	"github.com/basalt-go/basalt/pkg/modules/file"
 	"github.com/basalt-go/basalt/pkg/modules/finance"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
@@ -32,6 +33,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/rag"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
 	"github.com/basalt-go/basalt/pkg/modules/tenant"
+	"github.com/basalt-go/basalt/pkg/modules/tenantpkg"
 	"github.com/basalt-go/basalt/pkg/modules/workflow"
 	"github.com/basalt-go/basalt/pkg/stores/gormstore"
 )
@@ -133,6 +135,8 @@ func newServeCmd() *cobra.Command {
 			var agentM *agent.Module
 			var notifyM *notify.Module
 			var menuM *menu.Module
+			var tpgM *tenantpkg.Module
+			var ecM *errcode.Module
 			switch cfg.Storage {
 			case "sqlite":
 				dsn := cfg.DBDSN
@@ -151,7 +155,7 @@ func newServeCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("quota store: %w", err)
 				}
-				idm = identity.NewWithStoresAndSSO(st.UserStore(), st.RoleStore(), st.SSOStore())
+				idm = identity.NewFull(st.UserStore(), st.RoleStore(), st.SSOStore(), st.OnlineStore())
 				tnt = tenant.NewWithStore(st.TenantStore())
 				adm = audit.NewWithStore(chain)
 				gw = gateway.NewWithQuotaStore(qs)
@@ -221,6 +225,8 @@ func newServeCmd() *cobra.Command {
 				agentM = agent.New()
 				notifyM = notify.New()
 				menuM = menu.New()
+				tpgM = tenantpkg.New()
+				ecM = errcode.New()
 			}
 
 			// 内容安全审核器注入网关（两路径均保留审核能力：
@@ -257,7 +263,7 @@ func newServeCmd() *cobra.Command {
 				idm, tnt, adm,
 				orgM, dictM, sysM, notM,
 				fileM, jobM,
-				wfM, finM, docM, conM, gw, ragM, safetyM, agentM, notifyM, menuM,
+				wfM, finM, docM, conM, gw, ragM, safetyM, agentM, notifyM, menuM, tpgM, ecM,
 			} {
 				if err := a.Registry().Register(m); err != nil {
 					return err

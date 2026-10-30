@@ -45,6 +45,13 @@ func (h *Handler) RegisterRoutes(r web.Router) {
 
 	g.Handle(http.MethodPost, "/login", h.login)
 	g.Handle(http.MethodGet, "/me", auth(h.me))
+
+	// 在线会话（注册表启用时挂载）：登出本人会话 + 管理员在线列表/踢下线。
+	if h.f.sessions != nil {
+		g.Handle(http.MethodPost, "/logout", auth(h.logout))
+		g.Handle(http.MethodGet, "/sessions", auth(req(PermSessionManage, h.listSessions)))
+		g.Handle(http.MethodDelete, "/sessions/user/{id}", auth(req(PermSessionManage, h.kickUser)))
+	}
 }
 
 func (h *Handler) info(w http.ResponseWriter, _ *http.Request) {
@@ -339,6 +346,24 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	// 在线会话登记（注册表启用时）：指纹为主键，不存原始令牌。
+	// 登记失败不阻断登录（注册表是视图能力），仅日志告警。
+	if h.f.sessions != nil {
+		now := time.Now()
+		ses := OnlineSession{
+			TokenID:   TokenFingerprint(token),
+			UserID:    u.ID,
+			Username:  u.Username,
+			TenantID:  u.TenantID,
+			Remote:    r.RemoteAddr,
+			UserAgent: r.UserAgent(),
+			LoginAt:   now,
+			ExpiresAt: exp,
+		}
+		if err := h.f.sessions.Register(r.Context(), ses); err != nil && h.f.logger != nil {
+			h.f.logger.Warn("session register failed", "user_id", u.ID, "err", err.Error())
+		}
+	}
 	h.f.audit(r, "login.success", "username", u.Username, "user_id", u.ID, "tenant_id", u.TenantID)
 	web.OK(w, loginResp{Token: token, ExpiresAt: exp})
 }
@@ -346,6 +371,54 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 type meResp struct {
 	User
 	Permissions []string `json:"permissions"`
+}
+
+// logout 登出当前会话（单会话吊销，立即生效——下一个请求 401）。
+func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
+	fp, ok := TokenFPFrom(r.Context())
+	if ok {
+		if err := h.f.sessions.Revoke(r.Context(), fp, time.Now()); err != nil && h.f.logger != nil {
+			h.f.logger.Warn("session revoke failed", "err", err.Error())
+		}
+	}
+	uid, _ := UserIDFrom(r.Context())
+	h.f.audit(r, "logout", "user_id", uid)
+	web.OK(w, nil)
+}
+
+// listSessions 在线用户列表（未吊销未过期，登录时间倒序）。
+func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
+	sessions, err := h.f.sessions.ListOnline(r.Context(), time.Now())
+	if err != nil {
+		web.Err(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	if sessions == nil {
+		sessions = []OnlineSession{}
+	}
+	web.OK(w, sessions)
+}
+
+// kickUser 踢下线：吊销目标用户全部会话并记录用户级吊销时间戳
+// （iat < kicked_at 的旧令牌后续请求一律 401，立即生效）。
+func (h *Handler) kickUser(w http.ResponseWriter, r *http.Request) {
+	target := r.PathValue("id")
+	if _, err := h.f.users.Get(r.Context(), target); err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			web.Err(w, http.StatusNotFound, "user not found")
+			return
+		}
+		web.Err(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	n, err := h.f.sessions.RevokeByUser(r.Context(), target, time.Now())
+	if err != nil {
+		web.Err(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	uid, _ := UserIDFrom(r.Context())
+	h.f.audit(r, "session.kicked", "actor_id", uid, "user_id", target, "revoked", n)
+	web.OK(w, map[string]any{"revoked": n})
 }
 
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {

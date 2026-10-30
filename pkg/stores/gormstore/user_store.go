@@ -23,6 +23,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/contract"
 	"github.com/basalt-go/basalt/pkg/modules/dict"
 	"github.com/basalt-go/basalt/pkg/modules/document"
+	"github.com/basalt-go/basalt/pkg/modules/errcode"
 	"github.com/basalt-go/basalt/pkg/modules/file"
 	"github.com/basalt-go/basalt/pkg/modules/finance"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
@@ -34,6 +35,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/rag"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
 	"github.com/basalt-go/basalt/pkg/modules/tenant"
+	"github.com/basalt-go/basalt/pkg/modules/tenantpkg"
 	"github.com/basalt-go/basalt/pkg/modules/workflow"
 )
 
@@ -52,6 +54,9 @@ func OpenDB(db *gorm.DB) (*Stores, error) {
 	if err := db.AutoMigrate(
 		&identity.User{}, &identity.Role{}, &tenant.Tenant{},
 		&identity.Client{}, &identity.AuthCode{}, &identity.RefreshToken{},
+		&identity.OnlineSession{}, &identity.UserKick{},
+		&tenantpkg.Package{}, &tenantpkg.TenantPackage{},
+		&errcode.Entry{},
 		&org.Dept{}, &org.Post{},
 		&dict.Type{}, &dict.Data{},
 		&sysconfig.Item{},
@@ -99,6 +104,9 @@ func (s *Stores) RagStore() rag.Store                 { return &RagStore{db: s.D
 func (s *Stores) AgentStore() agent.Store             { return &AgentStore{db: s.DB} }
 func (s *Stores) NotifyStore() notify.Store           { return &NotifyStore{db: s.DB} }
 func (s *Stores) MenuStore() menu.Store               { return &MenuStore{db: s.DB} }
+func (s *Stores) OnlineStore() identity.OnlineStore   { return &OnlineStore{db: s.DB} }
+func (s *Stores) TenantPkgStore() tenantpkg.Store     { return &TenantPkgStore{db: s.DB} }
+func (s *Stores) ErrCodeStore() errcode.Store         { return &ErrCodeStore{db: s.DB} }
 
 // AuditChainStore 按传入哈希器构造持久化审计链（SM3/SHA-256 由调用方
 // 依 BASALT_CRYPTO_ALGO 决定）。

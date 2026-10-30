@@ -21,6 +21,7 @@ type Module struct {
 	users  UserStore
 	roles  RoleStore
 	sso    SSOStore
+	online OnlineStore
 	facade *Facade
 	boot   bootstrap
 }
@@ -28,17 +29,27 @@ type Module struct {
 type bootstrap struct{ username, password string }
 
 func New() *Module {
-	return &Module{users: NewMemUserStore(), roles: NewMemRoleStore(), sso: NewMemSSOStore()}
+	return &Module{
+		users:  NewMemUserStore(),
+		roles:  NewMemRoleStore(),
+		sso:    NewMemSSOStore(),
+		online: NewMemOnlineStore(),
+	}
 }
 
 // NewWithStores 允许注入自定义存储（测试与 GORM 装配）。
 func NewWithStores(users UserStore, roles RoleStore) *Module {
-	return &Module{users: users, roles: roles, sso: NewMemSSOStore()}
+	return &Module{users: users, roles: roles, sso: NewMemSSOStore(), online: NewMemOnlineStore()}
 }
 
 // NewWithStoresAndSSO 显式注入 SSO 存储（GORM 持久化装配）。
 func NewWithStoresAndSSO(users UserStore, roles RoleStore, sso SSOStore) *Module {
-	return &Module{users: users, roles: roles, sso: sso}
+	return &Module{users: users, roles: roles, sso: sso, online: NewMemOnlineStore()}
+}
+
+// NewFull 全量注入（GORM 装配：SSO + 在线会话注册表均持久化）。
+func NewFull(users UserStore, roles RoleStore, sso SSOStore, online OnlineStore) *Module {
+	return &Module{users: users, roles: roles, sso: sso, online: online}
 }
 
 // Users/Roles/Facade 供依赖模块（如 tenant）按声明式依赖取用；
@@ -72,6 +83,11 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 
 	issuer := NewTokenIssuer(cfg.JWTSecret, cfg.TokenTTL)
 	m.facade = NewFacade(m.users, m.roles, issuer, a.Logger())
+	// 在线会话注册表：登记（login）/登出/踢下线（kicked_at 立即生效）。
+	if m.online != nil {
+		m.facade.SetSessionStore(m.online)
+		issuer.SetRevocationChecker(m.online)
+	}
 	NewHandler(m.facade).RegisterRoutes(a.Router())
 
 	// SSO/OAuth2 子域（可注入装配）：SSOStore 为 nil 时跳过（最小装配）。
@@ -131,7 +147,7 @@ func (*Module) Describe() app.ModuleInfo {
 		Version: Version,
 		Permissions: []string{
 			PermUserCreate, PermUserList, PermUserGet, PermUserStatus, PermRoleManage,
-			PermSSOManage,
+			PermSSOManage, PermSessionManage,
 		},
 	}
 }

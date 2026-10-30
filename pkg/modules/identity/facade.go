@@ -19,11 +19,13 @@ type AuditSink interface {
 // Auth（认证）与 Require（权限点校验）可组合使用，使 tenant 等模块
 // 无需复制授权逻辑。这是模块间协作的官方通道。
 type Facade struct {
-	users  UserStore
-	roles  RoleStore
-	issuer *TokenIssuer
-	logger *slog.Logger
-	sink   AuditSink // Init 期注入，请求期只读
+	users      UserStore
+	roles      RoleStore
+	issuer     *TokenIssuer
+	logger     *slog.Logger
+	sink       AuditSink   // Init 期注入，请求期只读
+	sessions   OnlineStore // 在线会话注册表（登录登记/登出用，可选）
+	permFilter func(ctx context.Context, u User, perms []string) []string
 }
 
 func NewFacade(users UserStore, roles RoleStore, issuer *TokenIssuer, logger *slog.Logger) *Facade {
@@ -32,6 +34,17 @@ func NewFacade(users UserStore, roles RoleStore, issuer *TokenIssuer, logger *sl
 
 // SetAuditSink 注入审计接收端（audit 模块 Init 时调用）。
 func (f *Facade) SetAuditSink(s AuditSink) { f.sink = s }
+
+// SetSessionStore 注入在线会话注册表（identity Init 期装配）。
+func (f *Facade) SetSessionStore(s OnlineStore) { f.sessions = s }
+
+// SetPermFilter 注入权限过滤钩子（tenantpkg 模块 Init 时调用）：
+// permissionsOf 汇总角色权限后经此过滤再返回（套餐裁剪交集语义）。
+// Require/Can 及依赖它们的动态菜单下发（menu /me）在同一链路生效。
+// 平台级用户（无租户）由钩子实现自行放行。
+func (f *Facade) SetPermFilter(fn func(ctx context.Context, u User, perms []string) []string) {
+	f.permFilter = fn
+}
 
 // Auth 是令牌校验中间件（原 TokenIssuer.AuthMiddleware 的门面转发）。
 func (f *Facade) Auth(next http.HandlerFunc) http.HandlerFunc {
@@ -102,6 +115,10 @@ func (f *Facade) permissionsOf(r *http.Request, u User) ([]string, error) {
 			return nil, err
 		}
 		out = append(out, role.Permissions...)
+	}
+	// 套餐裁剪钩子（tenantpkg 注入；未注入 = 不过滤，向后兼容）。
+	if f.permFilter != nil {
+		out = f.permFilter(r.Context(), u, out)
 	}
 	return out, nil
 }

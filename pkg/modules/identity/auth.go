@@ -2,6 +2,8 @@ package identity
 
 import (
 	"context"
+	cryptorand "crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +18,7 @@ import (
 type TokenIssuer struct {
 	secret []byte
 	ttl    time.Duration
+	revoke RevocationChecker // 可选：吊销检查器（在线用户踢下线）
 }
 
 func NewTokenIssuer(secret string, ttl time.Duration) *TokenIssuer {
@@ -23,9 +26,12 @@ func NewTokenIssuer(secret string, ttl time.Duration) *TokenIssuer {
 }
 
 // Issue 为用户签发令牌，返回令牌与过期时刻。
+// claims 含随机 jti：同一秒内同用户重复签发也产生可区分的唯一令牌
+// （登出按令牌指纹吊销单会话的前提，见 session.go）。
 func (t *TokenIssuer) Issue(u User, now time.Time) (string, time.Time, error) {
 	exp := now.Add(t.ttl)
 	claims := jwt.RegisteredClaims{
+		ID:        randTokenID(),
 		Subject:   u.ID,
 		ExpiresAt: jwt.NewNumericDate(exp),
 		IssuedAt:  jwt.NewNumericDate(now),
@@ -44,6 +50,7 @@ func (t *TokenIssuer) Issue(u User, now time.Time) (string, time.Time, error) {
 func (t *TokenIssuer) IssueOAuth2(u User, clientID string, scopes []string, now time.Time) (string, time.Time, error) {
 	exp := now.Add(t.ttl)
 	claims := jwt.MapClaims{
+		"jti":       randTokenID(),
 		"sub":       u.ID,
 		"exp":       exp.Unix(),
 		"iat":       now.Unix(),
@@ -56,12 +63,35 @@ func (t *TokenIssuer) IssueOAuth2(u User, clientID string, scopes []string, now 
 	return s, exp, err
 }
 
+// randTokenID 生成令牌唯一标识（128 位熵 hex）。
+func randTokenID() string {
+	b := make([]byte, 16)
+	if _, err := cryptorand.Read(b); err != nil {
+		panic("identity: crypto/rand unavailable: " + err.Error())
+	}
+	return hex.EncodeToString(b)
+}
+
 type ctxKey int
 
-const userIDKey ctxKey = iota
+const (
+	userIDKey  ctxKey = iota
+	tokenFPKey        // 令牌指纹（吊销检查启用后注入）
+)
+
+// RevocationChecker 是令牌吊销检查器（在线用户踢下线/登出的生效点）。
+// AuthMiddleware 在签名校验通过后调用；iat 为令牌签发时刻。
+type RevocationChecker interface {
+	CheckToken(ctx context.Context, userID, tokenID string, iat time.Time) bool
+}
+
+// SetRevocationChecker 注入吊销检查器（identity Init 期装配 OnlineStore；
+// nil 或未注入 = 无吊销能力，保持纯无状态语义——与既有行为兼容）。
+func (t *TokenIssuer) SetRevocationChecker(c RevocationChecker) { t.revoke = c }
 
 // AuthMiddleware 校验 Bearer 令牌并把用户 ID 注入请求上下文。
 // 失败统一返回 401，不区分"缺失/过期/伪造"，避免向攻击者泄露状态。
+// 注入吊销检查器后额外执行踢下线/登出裁决（session.go 选型说明）。
 func (t *TokenIssuer) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
@@ -82,6 +112,20 @@ func (t *TokenIssuer) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			web.Err(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
+		if t.revoke != nil {
+			// 令牌指纹（在线会话注册表主键口径）+ 签发时刻。
+			fp := TokenFingerprint(token)
+			iat := time.Now()
+			if ts, err := parsed.Claims.GetIssuedAt(); err == nil && ts != nil {
+				iat = ts.Time
+			}
+			if !t.revoke.CheckToken(r.Context(), sub, fp, iat) {
+				web.Err(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			// 指纹供登出（单会话吊销）定位当前会话。
+			r = r.WithContext(context.WithValue(r.Context(), tokenFPKey, fp))
+		}
 		next(w, r.WithContext(context.WithValue(r.Context(), userIDKey, sub)))
 	}
 }
@@ -90,6 +134,12 @@ func (t *TokenIssuer) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 func UserIDFrom(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(userIDKey).(string)
 	return id, ok
+}
+
+// TokenFPFrom 取出中间件注入的令牌指纹（吊销检查启用后有效）。
+func TokenFPFrom(ctx context.Context) (string, bool) {
+	fp, ok := ctx.Value(tokenFPKey).(string)
+	return fp, ok
 }
 
 // WithUserID 把用户 ID 注入上下文（复用 AuthMiddleware 的注入语义，
