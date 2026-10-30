@@ -1,0 +1,267 @@
+/**
+ * Semi Design 交互层定制 —— 集中管理（EP 组件交互范式对齐，纯表现层）
+ *
+ * 真源（逐节标注）：
+ *  - motion：semi-theme-default/scss/animation.scss 注释中的"开启动画"推荐值
+ *    （slow 500ms / fast 200ms / faster 100ms，ease 家族，scale-small 1.04）
+ *  - switch：semi-foundation/switch/variables.scss（40×24、knob 18px 按压延展、
+ *    开启态 success 绿、关闭态 fill-0、动画 200ms）
+ *  - pagination：semi-foundation/pagination/variables.scss（32×32 无边框、
+ *    hover fill-0、选中 primary-light 底+primary 字+600）
+ *  - modal：semi-foundation/modal/variables.scss（头尾透明无边框、内容
+ *    paddingX 24、圆角 large 12px、蒙层 overlay .6、title 600）
+ *  - toast：semi-foundation/toast/variables.scss + 官网组件页实测
+ *    （深色变体：text-0 深底白字、radius-medium 6px、字重 500）
+ *  - table/select/tag：官网组件页交互范式（行 hover fill-0、选项 hover
+ *    圆角块、tag 无边框浅底深字）
+ * 依赖 semi-tokens.css 的 --semi-* token（先于本文件引入）。
+ */
+
+/* ===== 0. Motion 基线（animation.scss has-animation 值） ===== */
+:root {
+  --semi-transition-fast: 200ms;
+  --semi-transition-faster: 100ms;
+  --semi-transition-fn: cubic-bezier(0.62, 0.05, 0.36, 0.95); /* 官网实测缓出曲线近似 */
+  --el-transition-duration: var(--semi-transition-fast);
+  --el-transition-duration-fast: var(--semi-transition-faster);
+}
+
+/* 弹层动画：Semi modal/popover 为 fade + 轻缩放（scale .96→1），EP 默认纯位移 */
+@keyframes dialog-fade-in {
+  0% { opacity: 0; transform: translate3d(0, -12px, 0) scale(0.96); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes dialog-fade-out {
+  0% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  100% { opacity: 0; transform: translate3d(0, -8px, 0) scale(0.98); }
+}
+
+/* ===== 1. 对话框 / 确认框（modal variables.scss） ===== */
+.el-overlay {
+  background: rgba(22, 22, 26, 0.6); /* --semi-color-overlay-bg */
+}
+.el-dialog {
+  border-radius: var(--semi-border-radius-large); /* 12px */
+  box-shadow: var(--semi-shadow-elevated);
+  padding: 0;
+}
+.el-dialog__header {
+  padding: 24px 24px 0; /* header-marginY 24 + paddingX 24 */
+  margin-right: 0;
+}
+.el-dialog__title {
+  font-weight: 600; /* title-fontWeight */
+  color: var(--semi-color-text-0);
+}
+.el-dialog__body { padding: 24px; }
+.el-dialog__footer {
+  padding: 0 24px 24px; /* footer-marginY 24 */
+  border-top: none; /* footer-border transparent */
+}
+.el-message-box {
+  border-radius: var(--semi-border-radius-large);
+  box-shadow: var(--semi-shadow-elevated);
+  padding: 24px;
+}
+.el-message-box__title { font-weight: 600; }
+.el-message-box__btns { padding-top: 16px; }
+
+/* ===== 2. Toast / Message（toast variables.scss 深色变体，官网实测） ===== */
+.el-message {
+  background: var(--semi-color-text-0); /* 深底 */
+  border: none;
+  color: #fff;
+  border-radius: var(--semi-border-radius-medium); /* 6px */
+  box-shadow: var(--semi-shadow-elevated);
+  padding: 10px 16px;
+}
+.el-message .el-message__content {
+  color: #fff;
+  font-weight: 500; /* content-fontWeight bold 观感适中取 500 */
+}
+.el-message .el-message__icon {
+  margin-right: 8px;
+  color: var(--el-color-primary);
+}
+.el-message--success .el-message__icon { color: var(--semi-color-success); }
+.el-message--warning .el-message__icon { color: var(--semi-color-warning); }
+.el-message--error .el-message__icon { color: var(--semi-color-danger); }
+.el-message--info .el-message__icon { color: var(--semi-color-text-2); }
+
+/* ===== 3. 下拉面板与选项（官网 select/dropdown 实测：圆角块 hover） ===== */
+.el-select-dropdown,
+.el-dropdown-menu,
+.el-picker-panel,
+.el-message-box__wrapper + .el-popper {
+  border-radius: var(--semi-border-radius-medium); /* 6px */
+}
+.el-select-dropdown.el-popper,
+.el-dropdown__popper.el-popper {
+  border: 1px solid var(--semi-color-border);
+  box-shadow: var(--el-box-shadow-light);
+  border-radius: var(--semi-border-radius-medium);
+}
+.el-select-dropdown__item {
+  border-radius: var(--semi-border-radius-small);
+  margin: 0 4px;
+}
+.el-select-dropdown__item.is-hovering,
+.el-select-dropdown__item:hover {
+  background: var(--semi-color-fill-0); /* 选项 hover 浅灰块 */
+}
+.el-select-dropdown__item.is-selected {
+  color: var(--semi-color-primary);
+  font-weight: 600;
+  background: var(--semi-color-primary-light);
+}
+.el-select-dropdown__item.is-disabled {
+  color: var(--semi-color-text-3);
+  background: transparent;
+}
+.el-dropdown-menu__item:not(.is-disabled):hover,
+.el-dropdown-menu__item:not(.is-disabled):focus {
+  background: var(--semi-color-fill-0);
+  color: var(--semi-color-text-0);
+  border-radius: var(--semi-border-radius-small);
+}
+.el-dropdown-menu__item.is-disabled { color: var(--semi-color-text-3); }
+
+/* ===== 4. 分页器（pagination variables.scss） ===== */
+.el-pagination {
+  --el-pagination-button-bg-color: transparent;
+}
+.el-pagination .el-pager li,
+.el-pagination button {
+  background: transparent;
+  border: none; /* item-border transparent */
+  border-radius: var(--semi-border-radius-small); /* 3px */
+  min-width: 32px; /* item-minWidth */
+  height: 32px; /* item-height */
+  color: var(--semi-color-text-1);
+  font-weight: 400;
+  transition: background-color var(--semi-transition-faster) var(--semi-transition-fn),
+    color var(--semi-transition-faster) var(--semi-transition-fn);
+}
+.el-pagination .el-pager li:hover,
+.el-pagination button:hover {
+  background: var(--semi-color-fill-0); /* hover 浅灰块 */
+  color: var(--semi-color-text-0);
+}
+.el-pagination .el-pager li.is-active {
+  background: var(--semi-color-primary-light); /* 选中块状浅蓝 */
+  color: var(--semi-color-primary);
+  font-weight: 600; /* active-fontWeight bold */
+}
+.el-pagination button:disabled {
+  color: var(--semi-color-text-3);
+  background: transparent;
+}
+
+/* ===== 5. 表格行态（官网 table 实测） ===== */
+.el-table {
+  --el-table-row-hover-bg-color: var(--semi-color-fill-0);
+  --el-table-header-bg-color: var(--semi-grey-0);
+  --el-table-header-text-color: var(--semi-color-text-1);
+  --el-table-current-row-bg-color: var(--semi-color-primary-light);
+}
+.el-table th.el-table__cell {
+  font-weight: 600; /* 表头加粗（Semi 范式） */
+  color: var(--semi-color-text-1);
+}
+
+/* ===== 6. Tag（官网实测：无边框、浅底深字 light 形态、3px 圆角） ===== */
+.el-tag {
+  border: none;
+  border-radius: var(--semi-border-radius-small); /* 3px */
+  font-weight: 400;
+  height: 22px;
+  line-height: 20px;
+}
+.el-tag--primary { background: var(--semi-color-primary-light); color: var(--semi-color-primary); }
+.el-tag--success { background: var(--semi-green-0); color: var(--semi-color-success); }
+.el-tag--warning { background: var(--semi-orange-0); color: var(--semi-color-warning); }
+.el-tag--danger { background: var(--semi-red-0); color: var(--semi-color-danger); }
+.el-tag--error { background: var(--semi-red-0); color: var(--semi-color-danger); }
+.el-tag--info { background: var(--semi-grey-0); color: var(--semi-color-text-2); }
+.el-tag--primary .el-tag__content, .el-tag--success .el-tag__content,
+.el-tag--warning .el-tag__content, .el-tag--danger .el-tag__content,
+.el-tag--error .el-tag__content { color: inherit; }
+/* 深色实心 tag（el-tag effect="dark"）保持功能色实底 */
+.el-tag.el-tag--dark { color: #fff; }
+
+/* ===== 7. Switch（switch variables.scss） ===== */
+.el-switch {
+  --el-switch-on-color: var(--semi-color-success); /* 开启态 success 绿（Semi 范式） */
+  --el-switch-off-color: var(--semi-color-fill-0); /* 关闭态浅灰 */
+  height: 24px; /* height-switch 24px */
+}
+.el-switch .el-switch__core {
+  height: 24px;
+  border-radius: 12px; /* radius = h * 0.5 */
+  transition: background-color var(--semi-transition-fast) var(--semi-transition-fn),
+    border-color var(--semi-transition-fast) var(--semi-transition-fn); /* 200ms */
+}
+.el-switch .el-switch__core .el-switch__action {
+  width: 18px; /* knob 18px */
+  height: 18px;
+  border: 1px solid var(--semi-color-border); /* knob-border */
+  left: 1px;
+  transition: transform var(--semi-transition-fast) var(--semi-transition-fn),
+    width var(--semi-transition-fast) var(--semi-transition-fn),
+    left var(--semi-transition-fast) var(--semi-transition-fn);
+}
+/* 按压延展（knob_active +6px）：Semi 手感特征 */
+.el-switch:active:not(.is-disabled) .el-switch__core .el-switch__action { width: 24px; }
+.el-switch.is-checked .el-switch__core .el-switch__action {
+  left: calc(100% - 19px); /* checked-translateX 18px 语义 */
+  border-color: transparent;
+}
+.el-switch.is-disabled { opacity: 0.45; }
+/* focus 可访问性：Semi primary-outline 2px */
+.el-switch:focus-visible {
+  outline: 2px solid var(--semi-color-primary-light);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* ===== 8. 加载态（官网 Spin 实测：主色弧线、匀速） ===== */
+.el-loading-spinner .circular {
+  width: 32px;
+  height: 32px;
+  animation-duration: 0.8s;
+}
+.el-loading-spinner .path {
+  stroke: var(--semi-color-primary);
+  stroke-width: 2.4;
+}
+.el-loading-spinner .el-loading-text {
+  color: var(--semi-color-text-2);
+  font-size: 13px;
+}
+
+/* ===== 9. 表单与输入 focus/禁用（form 官网实测） ===== */
+.el-input__wrapper.is-focus,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 2px var(--semi-color-primary-light) !important; /* focus 浅蓝描边环 */
+}
+.el-input.is-disabled .el-input__wrapper,
+.el-textarea.is-disabled .el-textarea__inner {
+  background-color: var(--semi-grey-0); /* disabled-bg grey-1 观感取 grey-0 */
+  box-shadow: 0 0 0 1px var(--semi-color-border) inset;
+}
+.el-form-item__error {
+  color: var(--semi-color-danger);
+  font-size: 12px;
+  padding-top: 2px;
+}
+/* focus-visible 通用兜底（按钮类） */
+button.el-button:focus-visible {
+  outline: 2px solid var(--semi-color-primary-light);
+  outline-offset: 1px;
+}
+
+/* ===== 10. 按钮过渡曲线（Semi 按钮交互：快速缓出） ===== */
+.el-button {
+  transition: all var(--semi-transition-faster) var(--semi-transition-fn);
+}
+.el-button + .el-button { margin-left: 8px; }

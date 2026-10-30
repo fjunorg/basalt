@@ -6,6 +6,8 @@ import App from './App.vue'
 // Semi Design 视觉对齐层（token 单一来源，置于组件样式之后生效）：
 // 详见 src/styles/semi-tokens.css 头部注释（真源逐条标注）
 import './styles/semi-tokens.css'
+// Semi 交互层定制（EP 组件交互范式对齐，纯表现层，依赖上面的 token）
+import './styles/semi-interactions.css'
 import { api, token, perms, hasPerm, type MeInfo } from './api'
 
 // 页面级权限映射：meta.perms 列出进入该页面所需权限点（满足任一即可），
