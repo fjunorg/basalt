@@ -25,8 +25,8 @@
           <el-menu-item index="/documents">公文中心</el-menu-item>
           <el-menu-item index="/contracts">合同管理</el-menu-item>
           <el-menu-item index="/ai">AI 控制台</el-menu-item>
-          <el-menu-item index="/agent-defs">Agent 管理</el-menu-item>
-          <el-menu-item index="/agent-run">Agent 运行</el-menu-item>
+          <el-menu-item v-if="canRoute('/agent-defs')" index="/agent-defs">Agent 管理</el-menu-item>
+          <el-menu-item v-if="canRoute('/agent-run')" index="/agent-run">Agent 运行</el-menu-item>
         </el-sub-menu>
 
         <el-sub-menu index="mon">

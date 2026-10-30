@@ -113,3 +113,119 @@ export async function chatStream({ model, messages, onDelta }: {
 export function hasPerm(perms: string[] | null | undefined, want: string): boolean {
   return (perms || []).some((p) => p === '*' || p === want || (p.endsWith('*') && want.startsWith(p.slice(0, -1))))
 }
+
+// ===== Agent 模块（契约 agent-api-contract.md v1）=====
+
+// §2.5 Definition
+export interface AgentDef {
+  id: string
+  name: string
+  description?: string
+  system_prompt?: string
+  model: string
+  tools?: string[]
+  temperature?: number
+  max_tool_rounds?: number
+  status: string
+  owner_id?: string
+  created_at?: string
+  updated_at?: string
+}
+
+// §5 工具注册表项
+export interface AgentTool {
+  name: string
+  description?: string
+  parameters?: Record<string, unknown>
+}
+
+// §3.4 Run
+export interface AgentRun {
+  id: string
+  agent_id: string
+  user_id?: string
+  status: 'running' | 'completed' | 'failed' | 'safety_rejected'
+  input: string
+  output?: string
+  rounds?: number
+  total_tokens?: number
+  error?: string
+  started_at?: string
+  finished_at?: string
+}
+
+// §3.4 RunMessage
+export interface AgentRunMessage {
+  seq: number
+  run_id?: string
+  role: 'user' | 'assistant' | 'tool'
+  content: string
+  tool_calls?: Array<{ call_id: string; name: string; arguments: string }>
+  tool_call_id?: string
+  tool_name?: string
+  created_at?: string
+}
+
+// §4 SSE 事件（event 名 + 已解析 data）
+export interface AgentSseEvent {
+  event: 'run.started' | 'tool.call' | 'tool.result' | 'llm.delta' | 'run.completed' | 'run.failed' | 'safety.rejected'
+  data: {
+    run_id?: string
+    agent_id?: string
+    model?: string
+    call_id?: string
+    name?: string
+    arguments?: string
+    ok?: boolean
+    summary?: string
+    result?: string
+    text?: string
+    status?: string
+    rounds?: number
+    total_tokens?: number
+    output?: string
+    error?: string
+    side?: string
+    message?: string
+  }
+}
+
+// §3.1 发起运行（stream=true）。SSE 握手阶段（连接建立前）错误为普通
+// JSON 信封（401/403/404/409 等），此处解析后抛 Error；进入事件流后
+// 错误一律走 run.failed / safety.rejected 事件，由 onEvent 消费。
+export async function agentRunStream(agentId: string, input: string, onEvent: (ev: AgentSseEvent) => void): Promise<void> {
+  const res = await fetch(`/api/v1/agent/agents/${agentId}/runs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + token.get(),
+    },
+    body: JSON.stringify({ input, stream: true }),
+  })
+  if (!res.ok || !(res.headers.get('content-type') || '').includes('event-stream')) {
+    const env = (await res.json().catch(() => ({}))) as Partial<Envelope>
+    throw new Error(env.message || `请求失败(${res.status})`)
+  }
+  const reader = res.body!.getReader()
+  const decoder = new TextDecoder()
+  let buf = ''
+  let eventName = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    const lines = buf.split('\n')
+    buf = lines.pop() || ''
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        eventName = line.slice(7).trim()
+      } else if (line.startsWith('data: ')) {
+        const payload = line.slice(6)
+        if (payload === '[DONE]') return
+        try {
+          onEvent({ event: eventName as AgentSseEvent['event'], data: JSON.parse(payload) })
+        } catch { /* 忽略非 JSON 心跳行 */ }
+      }
+    }
+  }
+}
