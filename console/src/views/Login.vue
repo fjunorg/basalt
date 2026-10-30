@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../element'
 import { api, token, perms, errMsg, type MeInfo } from '../api'
 
 const username = ref('admin')

@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../element'
 import type { TableColumnCtx } from 'element-plus'
 import { api, perms, hasPerm, errMsg } from '../api'
 

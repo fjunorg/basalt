@@ -74,7 +74,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../element'
 import { api, perms, hasPerm, errMsg } from '../api'
 
 interface DeptRow { id: string; parent_id: string; name: string; sort: number; status: string; children?: DeptRow[] }

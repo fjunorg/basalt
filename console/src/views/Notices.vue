@@ -59,7 +59,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../element'
 import { api, perms, hasPerm, errMsg } from '../api'
 
 interface NoticeRow { id: string; title: string; content: string; type: string; status: string; created_at: string }

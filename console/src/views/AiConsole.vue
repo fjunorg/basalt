@@ -57,7 +57,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../element'
 import { api, chatStream, perms, hasPerm, errMsg, type ChatMessage } from '../api'
 
 interface QuotaInfo { used: number; limit: number }

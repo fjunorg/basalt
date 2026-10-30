@@ -1,0 +1,1 @@
+import{_ as a,av as o,b4 as f,af as m,ac as i,bw as b,J as c}from"./index-D3aqPEva.js";const t=r=>{const p=a(r)?r:[r],s=[];return p.forEach(e=>{var n;a(e)?s.push(...t(e)):o(e)&&((n=e.component)!=null&&n.subTree)?s.push(e,...t(e.component.subTree)):o(e)&&a(e.children)?s.push(...t(e.children)):o(e)&&e.shapeFlag===2?s.push(...t(e.type())):s.push(e)}),s};export{t as f};

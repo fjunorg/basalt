@@ -1,8 +1,7 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
-import zhCn from 'element-plus/es/locale/lang/zh-cn'
+import { ElLoading } from 'element-plus'
+import 'element-plus/es/components/loading/style/css'
 import App from './App.vue'
 import { api, token, perms, hasPerm, type MeInfo } from './api'
 
@@ -74,4 +73,6 @@ router.beforeEach(async (to) => {
     : { path: '/forbidden', query: { to: to.fullPath, need: need.join(',') } }
 })
 
-createApp(App).use(router).use(ElementPlus, { locale: zhCn }).mount('#app')
+// Element Plus 按需导入：模板组件由 unplugin-vue-components 自动注入，
+// 此处仅全局注册 v-loading 指令（指令不经 resolver）；locale 见 App.vue。
+createApp(App).use(router).use(ElLoading).mount('#app')

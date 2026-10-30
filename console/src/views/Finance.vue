@@ -133,7 +133,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../element'
 import { api, perms, hasPerm, errMsg } from '../api'
 
 interface ExpenseRow { id: string; business_key: string; reason: string; amount: number; status: string; created_at: string }

@@ -68,7 +68,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../element'
 import { api, perms, hasPerm, errMsg } from '../api'
 
 interface DictType { id: string; code: string; name: string; remark?: string }

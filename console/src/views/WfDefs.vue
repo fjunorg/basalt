@@ -59,7 +59,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../element'
 import { api, perms, hasPerm, errMsg } from '../api'
 
 interface WfStep { name: string; approvers: string[]; mode: 'countersign' | 'or-sign' }

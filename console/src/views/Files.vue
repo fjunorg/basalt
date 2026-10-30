@@ -28,7 +28,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../element'
 import { api, token, perms, hasPerm, errMsg, type Envelope } from '../api'
 
 interface FileRow { id: string; name: string; size: number; content_type: string; created_at: string }

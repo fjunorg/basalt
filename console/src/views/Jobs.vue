@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage } from '../element'
 import { api, perms, hasPerm, errMsg } from '../api'
 
 interface JobRow { id: string; name: string; description: string; interval_sec: number; enabled: boolean; last_err?: string; last_result?: string }

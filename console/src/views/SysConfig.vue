@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from '../element'
 import { api, perms, hasPerm, errMsg } from '../api'
 
 interface ConfigRow { id: string; key: string; name: string; value: string; updated_at: string }
