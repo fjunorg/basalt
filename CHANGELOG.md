@@ -10,7 +10,7 @@
 
 ### 新增
 
-- **租户 dedicated-db 全量路由**：`BASALT_TENANT_ROUTING=on` 时全部 13 个
+- **租户 dedicated-db 全量路由**：`BASALT_TENANT_ROUTING=on` 时全部 12 个
   业务模块（org / dict / sysconfig / notice / file（元数据）/ job /
   finance / document / contract / workflow（实例+定义）/ rag / agent）经
   RoutedStores 请求级路由到租户专属库。接入边界（不路由，理由详见

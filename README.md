@@ -13,7 +13,7 @@
 |----|------|------|------|
 | L0 | kernel | 模块系统（依赖拓扑/生命周期）、gin Router 抽象、配置、slog、OTel 可观测、**国密 Provider**（SM3 摘要 GB/T 32905 + SM2 签名 GB/T 32918.2，官方向量验证）、CLI（serve/version/new/secure） | ✅ |
 | L1 | identity | 用户/角色 RBAC、bcrypt、JWT、权限点中间件（通配）、幂等引导管理员、prod 安全守卫 | v0.3 |
-| L1 | tenant | 租户 CRUD、租户上下文实时解析、行级隔离；v1.4.0 起 dedicated-db 库级隔离全量实装（13 个业务模块请求级路由，平台级模块固定主库，见 [docs/tenant-isolation.md](docs/tenant-isolation.md)） | v0.2 |
+| L1 | tenant | 租户 CRUD、租户上下文实时解析、行级隔离；v1.4.0 起 dedicated-db 库级隔离全量实装（12 个业务模块请求级路由，平台级模块固定主库，见 [docs/tenant-isolation.md](docs/tenant-isolation.md)） | v0.2 |
 | L1 | audit | **防篡改审计链**（链式哈希防单点篡改、链尾 SM2 签名防整库重算伪造历史、篡改定位、GORM 持久化重启续链、SM3 可选） | v0.2 |
 | L1 | workflow | 轻量审批流（会签/或签/撤回、待办、守卫；实例与定义 GORM 持久化、重启恢复） | v0.2 |
 | L1 | org | 组织架构（部门树 + 岗位） | v0.1 |
