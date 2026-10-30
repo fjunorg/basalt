@@ -147,6 +147,15 @@ func newServeCmd() *cobra.Command {
 				gw = gateway.NewWithQuotaStore(qs)
 				orgM = org.NewWithStore(st.OrgStore())
 				dictM = dict.NewWithStore(st.DictStore())
+				// dedicated-db 租户路由（可选，默认关闭维持现状）：
+				// BASALT_TENANT_ROUTING=on 时 dict 模块按请求租户路由到
+				// 专属库（示范接入，其余模块照 docs/tenant-isolation.md）。
+				if os.Getenv("BASALT_TENANT_ROUTING") == "on" {
+					tRouter := gormstore.NewTenantRouter()
+					defer tRouter.Close() // 随进程优雅退出
+					dictM = dict.NewWithStore(gormstore.NewRoutedDictStore(
+						st.DB, st.UserStore(), st.TenantStore(), tRouter))
+				}
 				sysM = sysconfig.NewWithStore(st.SysConfigStore())
 				notM = notice.NewWithStore(st.NoticeStore())
 				fileM = file.NewWithStore(st.FileStore(), localStorage)
