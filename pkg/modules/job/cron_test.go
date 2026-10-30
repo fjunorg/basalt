@@ -2,7 +2,6 @@ package job
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -159,11 +158,14 @@ func TestDynamicJobLifecycle(t *testing.T) {
 		t.Fatal("重复 id 应拒绝")
 	}
 
-	// 列表含动态任务（cron 型）
+	// 列表含动态任务（cron 型）。注意：List() 每次返回新切片
+	// （map 迭代序随机），必须单次取值再索引——二次调用会因顺序
+	// 不同而指向错误元素（race 模式下暴露的真实测试 bug）。
+	list := m.List()
 	var found *Job
-	for i, j := range m.List() {
-		if j.ID == "dyn" {
-			found = &m.List()[i]
+	for i := range list {
+		if list[i].ID == "dyn" {
+			found = &list[i]
 		}
 	}
 	if found == nil || found.Kind != KindHTTP || found.CronExpr != "*/5 * * * *" {
@@ -357,10 +359,13 @@ func TestCronJobTickScheduling(t *testing.T) {
 	m := NewManager(nil)
 	_ = m.RegisterHTTP("tick", "到期", "", "* * * * *", 0, srv.URL, "GET", "")
 	// 手动把 NextRun 拨到过去 → tick 应执行并按 cron 重排到未来分钟
+	tickStart := time.Now().UTC() // 断言下界：race 开销下断言时刻可能
+	// 越过紧邻的分钟刻度（cron 重排最小粒度），用 tick 前时刻判定
+	// 才无竞态——重排值恒 > exec 时刻 ≥ tickStart。
 	m.mu.Lock()
 	if j, ok := m.jobs["tick"]; ok {
 		j.Enabled = true
-		j.NextRun = time.Now().UTC().Add(-time.Minute)
+		j.NextRun = tickStart.Add(-time.Minute)
 	}
 	m.mu.Unlock()
 	m.tick(context.Background())
@@ -370,8 +375,7 @@ func TestCronJobTickScheduling(t *testing.T) {
 	m.mu.Lock()
 	next := m.jobs["tick"].NextRun
 	m.mu.Unlock()
-	if next.Before(time.Now().UTC()) {
-		t.Fatalf("重排 NextRun = %s（应未来）", next)
+	if !next.After(tickStart) {
+		t.Fatalf("重排 NextRun = %s（应晚于 tick 起点 %s）", next, tickStart)
 	}
-	_ = json.Marshal
 }
