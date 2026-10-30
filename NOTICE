@@ -1,0 +1,26 @@
+Basalt
+Copyright 2026 The Basalt Authors
+
+This product includes software developed by the Basalt open-source project
+(https://github.com/basalt-go/basalt).
+
+"Basalt" and the Basalt logo are trademarks of the Basalt project owners.
+The Apache 2.0 license does not grant trademark rights; see GOVERNANCE.md.
+
+Third-party components
+----------------------
+Direct runtime dependencies (full transitive list: go.sum / go mod graph):
+
+- github.com/gin-gonic/gin          (MIT)
+- github.com/spf13/cobra            (Apache-2.0)
+- golang.org/x/crypto               (BSD-3-Clause)
+- github.com/golang-jwt/jwt/v5      (MIT)
+- go.opentelemetry.io/otel + sdk + otlp exporters + contrib/otelhttp (Apache-2.0)
+- gorm.io/gorm                      (MIT)
+- github.com/glebarez/sqlite        (MIT, pure-Go SQLite driver - CGO-free cross-compile)
+- github.com/emmansun/gmsm          (Apache-2.0, GB/T 32905 SM3 etc.)
+
+All are permissive licenses compatible with the project's Apache-2.0
+distribution, per docs/02-oss-governance.md dependency rules. Planned:
+gin middleware extras, emmansun/gmsm (Apache-2.0), Eino (Apache-2.0).
+Any new dependency MUST be added to this list in the same PR.

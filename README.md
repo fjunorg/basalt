@@ -1,0 +1,114 @@
+# Basalt（玄武）
+
+> 纯 Go · 纯开源 · AI 原生 · 面向 ToB/ToG 的通用后端平台框架
+> Pure-Go, fully open-source (Apache-2.0), AI-native backend platform framework for B2B & GovTech.
+
+![Status](https://img.shields.io/badge/release-v1.0.0-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Go](https://img.shields.io/badge/go-1.23%2B-00ADD8) ![Tests](https://img.shields.io/badge/tests-race--enabled-green)
+
+## v1.0.0 已交付（API-first，单体形态）
+
+| 层 | 模块 | 能力 | 版本 |
+|----|------|------|------|
+| L0 | kernel | 模块系统（依赖拓扑/生命周期）、gin Router 抽象、配置、slog、OTel 可观测、**国密 SM3 Provider**（GB/T 32905 向量验证）、CLI 脚手架 | ✅ |
+| L1 | identity | 用户/角色 RBAC、bcrypt、JWT、权限点中间件（通配）、幂等引导管理员、prod 安全守卫 | v0.3 |
+| L1 | tenant | 租户 CRUD、租户上下文实时解析、行级隔离 | v0.2 |
+| L1 | audit | **防篡改审计链**（链式哈希、篡改定位、GORM 持久化重启续链、SM3 可选） | v0.2 |
+| L1 | workflow | 轻量审批流（会签/或签/撤回、待办、守卫） | v0.1 |
+| L2 | ai-gateway | **OpenAI 兼容模型网关** + **SSE 流式**（include_usage 记账）+ 租户**月度账期**配额（持久化原子记账）+ 调用审计 | v0.2 |
+| — | stores | GORM 持久化（SQLite 无 CGO / openGauss-postgres / 达梦-OpenDB 注入） | v0.1 |
+
+> 1.1 路线：gRPC/服务治理、RAG、Agent（Eino）、内容安全、Vue3 Console、SM2 签名、shared-db/dedicated-db 隔离。详见 [CHANGELOG](CHANGELOG.md)。
+
+## 定位
+
+| 差异化能力 | 说明 |
+|-----------|------|
+| **AI 原生** | 模型网关、租户级 Token 配额与成本核算、AI 全链路审计——开箱内建，而非外挂 |
+| **合规内建** | 防篡改审计链（已交付）、国密 SM2/SM3/SM4（Provider 就绪，M2 接 emmansun/gmsm）、等保三级基线（规划），默认开启而非可选项 |
+| **信创适配** | 麒麟/统信 OS、鲲鹏(ARM64)/龙芯(LoongArch) 交叉编译矩阵已入 CI；达梦/openGauss/OceanBase 方言经 OpenDB 注入 |
+| **纯开源承诺** | 全部功能单一 Apache 2.0 协议，永无闭源"商业版"——见 [OPEN_SOURCE_PLEDGE.md](OPEN_SOURCE_PLEDGE.md) |
+
+竞品调研与架构决策记录见 [docs/](docs/) 目录。
+
+## 快速开始
+
+```bash
+# 要求 Go >= 1.23
+go run ./cmd/basalt serve
+
+# 首启引导管理员：admin / Basalt@2026（生产环境必须显式配置）
+curl -X POST localhost:8080/api/v1/identity/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"Basalt@2026"}'
+
+# 生产形态推荐（持久化 + 国密审计链 + AI 接入）：
+BASALT_STORAGE=sqlite \                      # 身份/租户/审计链/配额全部落盘
+BASALT_DB_DSN=/var/lib/basalt/basalt.db \
+BASALT_CRYPTO_ALGO=sm3 \                     # 审计链切换国密 SM3
+BASALT_AI_PROVIDER_URL=http://vllm:8000 \    # 任意 OpenAI 兼容端点
+BASALT_AI_PROVIDER_KEY=sk-xxx \
+  basalt serve --env prod
+```
+
+### 前端构建说明（console/dist 已入库）
+
+`console/dist` 为**有意提交**的前端构建产物：`go:embed`（见 `console/embed.go`）依赖它，保证 `go build` 即得带 UI 的单文件二进制——这是信创离线单文件交付的硬约束。修改 `console/` 源码后需重新构建并随源码一并提交：
+
+```bash
+cd console && npm install && npm run build
+```
+
+## 架构
+
+```
+L3  前端控制台（Vue3 + Element Plus，go:embed 嵌入，M3）   console/
+L2  AI 基础设施：模型网关 · 配额 · RAG · Agent · 审计      pkg/ai/
+L1  平台业务：身份 · 多租户 · 工作流 · 审计（可插拔模块）    pkg/modules/
+L0  内核：HTTP · 配置 · 日志 · 服务治理 · 国密 · CLI        pkg/kernel/
+横切 信创适配（麒麟/龙芯/鲲鹏 · 达梦/openGauss）· 部署 · 安全
+```
+
+详见 [docs/01-architecture.md](docs/01-architecture.md)。
+
+## 编写一个模块
+
+```go
+type Hello struct{}
+
+func (*Hello) Name() string           { return "hello" }
+func (*Hello) Version() string        { return "0.1.0" }
+func (*Hello) Dependencies() []string { return nil }
+
+func (*Hello) Init(_ context.Context, a *app.App) error {
+    a.Mux().HandleFunc("GET /api/v1/hello", func(w http.ResponseWriter, _ *http.Request) {
+        web.OK(w, map[string]string{"msg": "hello"})
+    })
+    return nil
+}
+func (*Hello) Start(context.Context) error { return nil }
+func (*Hello) Stop(context.Context) error  { return nil }
+
+// 注册：a.Registry().Register(&Hello{})
+```
+
+模块经 Registry 做依赖拓扑排序，Init/Start 正序、Stop 逆序驱动——这是 Basalt 可插拔架构的核心机制（`pkg/kernel/app`）。
+
+## 路线图
+
+| 里程碑 | 周期 | 交付 |
+|--------|------|------|
+| M1 | 0–3 月 | 内核完善（gin/cobra/otel/国密）+ 身份/多租户实装 + CLI 脚手架 |
+| M2 | 3–6 月 | 轻量审批工作流 + 防篡改审计 + AI 网关与配额 |
+| M3 | 6–12 月 | RAG/Agent（集成 Eino）+ 内容安全 + Admin Console |
+
+## 参与
+
+- 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)（DCO 签名必需）
+- 安全漏洞：[SECURITY.md](SECURITY.md)（**请勿在公开 issue 报告安全问题**）
+- 社区治理：[GOVERNANCE.md](GOVERNANCE.md)
+- 行为准则：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
+## 许可
+
+[Apache License 2.0](LICENSE) · 版权所有 The Basalt Authors。
+"Basalt" 名称与徽标为项目商标，不随代码许可授予。

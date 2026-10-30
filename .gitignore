@@ -1,0 +1,26 @@
+# ===== 构建产物 =====
+# go build 输出（Makefile: build）
+/bin/
+# 交叉编译产物（Makefile: cross-build）——仅根级；console/dist 是 go:embed 依赖，有意保留入库
+/dist/
+# Go 测试二进制与覆盖率
+*.test
+coverage.out
+
+# ===== 前端 =====
+console/node_modules/
+
+# ===== 运行时数据与敏感文件 =====
+uploads/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+
+# ===== 系统与编辑器 =====
+.DS_Store
+.idea/
+.vscode/
