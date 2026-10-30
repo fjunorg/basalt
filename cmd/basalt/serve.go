@@ -151,29 +151,47 @@ func newServeCmd() *cobra.Command {
 				tnt = tenant.NewWithStore(st.TenantStore())
 				adm = audit.NewWithStore(chain)
 				gw = gateway.NewWithQuotaStore(qs)
-				orgM = org.NewWithStore(st.OrgStore())
-				dictM = dict.NewWithStore(st.DictStore())
 				// dedicated-db 租户路由（可选，默认关闭维持现状）：
-				// BASALT_TENANT_ROUTING=on 时 dict 模块按请求租户路由到
-				// 专属库（示范接入，其余模块照 docs/tenant-isolation.md）。
+				// BASALT_TENANT_ROUTING=on 时全部业务模块按请求租户路由
+				// 到专属库（平台级 identity/tenant/audit/quota 与
+				// aisafety 固定主库，边界见 docs/tenant-isolation.md）。
+				var routed *gormstore.RoutedStores
 				if os.Getenv("BASALT_TENANT_ROUTING") == "on" {
 					tRouter := gormstore.NewTenantRouter()
 					defer tRouter.Close() // 随进程优雅退出
-					dictM = dict.NewWithStore(gormstore.NewRoutedDictStore(
+					routed = gormstore.NewRoutedStores(gormstore.NewRoutedResolver(
 						st.DB, st.UserStore(), st.TenantStore(), tRouter))
 				}
-				sysM = sysconfig.NewWithStore(st.SysConfigStore())
-				notM = notice.NewWithStore(st.NoticeStore())
-				fileM = file.NewWithStore(st.FileStore(), localStorage)
-				jobM = job.NewWithStore(a.Logger(), st.JobStore())
-				finM = finance.NewWithStore(st.FinanceStore())
-				docM = document.NewWithStore(st.DocumentStore())
-				conM = contract.NewWithStore(st.ContractStore())
-				wfM = workflow.NewWithStores(st.WorkflowStore(), st.WorkflowDefStore())
-				ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
-				ragM = rag.NewWithStore(st.RagStore(), ragFiles, ragEmb)
+				if routed != nil {
+					orgM = org.NewWithStore(routed.OrgStore())
+					dictM = dict.NewWithStore(routed.DictStore())
+					sysM = sysconfig.NewWithStore(routed.SysConfigStore())
+					notM = notice.NewWithStore(routed.NoticeStore())
+					fileM = file.NewWithStore(routed.FileStore(), localStorage)
+					jobM = job.NewWithStore(a.Logger(), routed.JobStore())
+					finM = finance.NewWithStore(routed.FinanceStore())
+					docM = document.NewWithStore(routed.DocumentStore())
+					conM = contract.NewWithStore(routed.ContractStore())
+					wfM = workflow.NewWithStores(routed.WorkflowStore(), routed.WorkflowDefStore())
+					ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
+					ragM = rag.NewWithStore(routed.RagStore(), ragFiles, ragEmb)
+					agentM = agent.NewWithStore(routed.AgentStore())
+				} else {
+					orgM = org.NewWithStore(st.OrgStore())
+					dictM = dict.NewWithStore(st.DictStore())
+					sysM = sysconfig.NewWithStore(st.SysConfigStore())
+					notM = notice.NewWithStore(st.NoticeStore())
+					fileM = file.NewWithStore(st.FileStore(), localStorage)
+					jobM = job.NewWithStore(a.Logger(), st.JobStore())
+					finM = finance.NewWithStore(st.FinanceStore())
+					docM = document.NewWithStore(st.DocumentStore())
+					conM = contract.NewWithStore(st.ContractStore())
+					wfM = workflow.NewWithStores(st.WorkflowStore(), st.WorkflowDefStore())
+					ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
+					ragM = rag.NewWithStore(st.RagStore(), ragFiles, ragEmb)
+					agentM = agent.NewWithStore(st.AgentStore())
+				}
 				safetyM = aisafety.NewWithStore(st.AISafetyStore())
-				agentM = agent.NewWithStore(st.AgentStore())
 			case "postgres", "opengauss":
 				// openGauss 走 postgres 协议方言；驱动（gorm.io/driver/
 				// postgres 或信创社区驱动）接线后在此 OpenDB 注入即可，

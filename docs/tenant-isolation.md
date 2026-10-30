@@ -1,7 +1,7 @@
 # 租户数据库隔离（tenant isolation）
 
-> 状态：dedicated-db 已实装（端到端示范接入：dict 模块）；shared-db 经评估暂不实装（见 §4）。
-> 关联代码：`pkg/stores/gormstore/tenant_router.go`、`pkg/modules/tenant`、`cmd/basalt/serve.go`。
+> 状态：dedicated-db 已全量实装（全部业务模块请求级路由）；shared-db 经评估暂不实装（见 §4）。
+> 关联代码：`pkg/stores/gormstore/tenant_router.go`、`pkg/stores/gormstore/routed_stores.go`、`pkg/modules/tenant`、`cmd/basalt/serve.go`。
 
 ## 1. 三模式总览
 
@@ -36,15 +36,16 @@
 - **重启恢复**：租户库是普通库文件/网络库，重启后 Router 缓存冷启动、按需重连，数据延续。
 - **解析成本**：每请求 1-2 次主库点查（用户→租户）。sqlite 本地毫秒级；生产高频场景可在 `dbFor` 层加 TTL 缓存（接口不变）。
 
-### 2.3 端到端示范接入（dict 模块）
+### 2.3 全量接入（v1.4.0 起）
 
-`RoutedDictStore` 实现 `dict.Store`：查询体与固定库 `DictStore` 共用包级函数（单一来源），仅连接按请求路由。serve 装配：
+`BASALT_TENANT_ROUTING=on` 时**全部业务模块**经 `RoutedStores` 聚合接入请求级路由：org / dict / sysconfig / notice / file（元数据）/ job / finance / document / contract / workflow（实例+定义）/ rag / agent。实现模式：每模块一个 `RoutedXxxStore` 内嵌共享 `tenantResolver`（dbFor 解析），委托对应固定库 store 的同名方法——查询逻辑单一来源、模块层零改动。
 
-```
-BASALT_STORAGE=sqlite BASALT_TENANT_ROUTING=on   # 默认 off，现状行为不变
-```
+**接入边界**（不路由，理由）：
+- identity / tenant / audit / quota：平台级数据（跨租户认证、租户目录本身、全局审计链、平台配额），按 §2.1 库边界固定主库
+- aisafety：Engine 为进程级内存快照（变更后整体 Reload），与请求级路由语义冲突；随按租户策略快照演进后接入
+- file 字节流：元数据已路由；文件本体在共享磁盘 `BASALT_UPLOAD_DIR`（Storage 接口与库无关），物理隔离随对象存储接入
 
-开启后 dict 模块的 API 请求即按租户路由；关闭（或不设）时 dict 与其余模块走固定主库。**其余业务模块接入**：复制 RoutedDictStore 模式——查询体抽包级函数 + dbFor 路由（每个模块约 60 行机械代码，不改变模块层任何代码）。逐模块接入随需求排期，机制已验证。
+**模式变更边界**：`isolation_mode` / `db_ref` 仅创建时设置，PATCH 不支持在线切换——切换意味着既有数据留在原库而新数据落新库（等效静默丢数据），与"绝不静默回退"哲学冲突；变更走受控迁移流程。
 
 ## 3. 运维手册
 
@@ -78,5 +79,6 @@ POST /api/v1/tenant/tenants
 
 `pkg/stores/gormstore/tenant_router_test.go`：
 - 路由正确性 + 隔离性：两 dedicated 租户同 code 各自建库互不冲突、数据互不可见；shared-schema 租户与平台用户走主库
+- 全量隔离（`TestRoutedStoresFullIsolation`）：双租户跨全部 12 个接入模块的写读探针——A 写入 B 不可见、B 写入不进 A 库
 - 重启恢复：Router/主库连接重建后租户库数据延续
 - 错误语义：DSN 缺失/DBRef 缺失/连接失败均 `ErrTenantDBUnavailable`，无静默回退
