@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "1.4.0" // 由 -ldflags "-X main.version=..." 注入正式版本
+var version = "1.5.0" // 由 -ldflags "-X main.version=..." 注入正式版本
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
