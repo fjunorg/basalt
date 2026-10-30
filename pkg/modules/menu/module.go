@@ -320,6 +320,9 @@ var Seeds = []Menu{
 	{ID: "m-jobs", Icon: "Timer", Name: "定时任务", Path: "/jobs", Perm: "job:list", ParentID: "m-group-sys", Sort: 100, Enabled: true},
 	{ID: "m-wfdefs", Icon: "Operation", Name: "流程定义", Path: "/wfdefs", Perm: "workflow:def:manage", ParentID: "m-group-sys", Sort: 110, Enabled: true},
 	{ID: "m-sso-apps", Icon: "Link", Name: "SSO 应用管理", Path: "/sso/apps", Perm: "identity:sso:manage", ParentID: "m-group-sys", Sort: 120, Enabled: true},
+	{ID: "m-online-users", Icon: "Monitor", Name: "在线用户", Path: "/online-users", Perm: "identity:session:manage", ParentID: "m-group-sys", Sort: 130, Enabled: true},
+	{ID: "m-tenant-pkgs", Icon: "Collection", Name: "租户套餐", Path: "/tenant-pkgs", Perm: "tenantpkg:manage", ParentID: "m-group-sys", Sort: 140, Enabled: true},
+	{ID: "m-errcodes", Icon: "List", Name: "错误码", Path: "/errcodes", Perm: "errcode:list", ParentID: "m-group-sys", Sort: 150, Enabled: true},
 
 	// 系统监控
 	{ID: "m-audit", Icon: "DataAnalysis", Name: "审计链", Path: "/audit", Perm: "audit:read", ParentID: "m-group-mon", Sort: 10, Enabled: true},
