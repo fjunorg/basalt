@@ -49,7 +49,7 @@
     </el-dialog>
 
     <el-dialog v-model="viewDlg" :title="viewing?.title" width="560">
-      <p style="color: #909399; font-size: 13px">
+      <p style="color: var(--semi-color-text-2); font-size: 13px">
         {{ viewing?.type }} · {{ viewing?.status }} · {{ new Date(viewing?.created_at || 0).toLocaleString('zh-CN') }}
       </p>
       <div style="white-space: pre-wrap; line-height: 1.8">{{ viewing?.content }}</div>

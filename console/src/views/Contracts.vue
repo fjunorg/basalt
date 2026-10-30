@@ -17,7 +17,7 @@
       </el-table-column>
       <el-table-column label="到期" width="110">
         <template #default="{ row }">
-          <span v-if="row.expire_date" :style="expiring(row) ? 'color:#f56c6c;font-weight:600' : ''">
+          <span v-if="row.expire_date" :style="expiring(row) ? 'color:var(--semi-color-danger);font-weight:600' : ''">
             {{ new Date(row.expire_date).toLocaleDateString('zh-CN') }}
           </span>
           <span v-else>-</span>

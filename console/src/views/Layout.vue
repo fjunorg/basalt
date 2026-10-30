@@ -1,8 +1,8 @@
 <template>
   <el-container style="min-height: 100vh">
-    <el-aside width="210px" style="background: #1f2d3d">
+    <el-aside width="220px" class="side-nav">
       <div class="brand">玄武 Basalt</div>
-      <el-menu :default-active="$route.path" router background-color="#1f2d3d" text-color="#bfcbd9" active-text-color="#409EFF">
+      <el-menu :default-active="$route.path" router>
         <el-menu-item index="/overview"><el-icon><Odometer /></el-icon>概览</el-menu-item>
 
         <el-sub-menu index="sys">
@@ -40,10 +40,10 @@
       <el-header class="topbar">
         <span style="font-weight: 600">{{ $route.meta.title || '' }}</span>
         <div style="flex: 1"></div>
-        <span style="color: #909399; font-size: 13px; margin-right: 12px">{{ me?.username || '' }}</span>
+        <span style="color: var(--semi-color-text-2); font-size: 13px; margin-right: 12px">{{ me?.username || '' }}</span>
         <el-button text type="danger" @click="logout">退出</el-button>
       </el-header>
-      <el-main style="background: #f5f7fa">
+      <el-main style="background: var(--semi-grey-0)">
         <router-view />
       </el-main>
     </el-container>
@@ -87,7 +87,7 @@ function logout() {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--semi-color-text-0);
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 2px;
@@ -95,7 +95,7 @@ function logout() {
 .topbar {
   display: flex;
   align-items: center;
-  background: #fff;
-  border-bottom: 1px solid #e4e7ed;
+  background: var(--semi-color-bg-0);
+  border-bottom: 1px solid var(--semi-color-border);
 }
 </style>

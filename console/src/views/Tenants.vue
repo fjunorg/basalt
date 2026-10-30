@@ -15,7 +15,7 @@
       <el-table-column label="库引用" width="140">
         <template #default="{ row }">
           <span v-if="row.db_ref"><code style="font-size: 12px">{{ row.db_ref }}</code></span>
-          <span v-else style="color: #909399">-</span>
+          <span v-else style="color: var(--semi-color-text-2)">-</span>
         </template>
       </el-table-column>
       <el-table-column label="状态" width="90">
@@ -71,7 +71,7 @@
         </el-form-item>
         <el-form-item label="库引用">
           <code v-if="editing?.db_ref" style="font-size: 12px">{{ editing.db_ref }}</code>
-          <span v-else style="color: #909399">-</span>
+          <span v-else style="color: var(--semi-color-text-2)">-</span>
         </el-form-item>
         <div class="hint">隔离模式与库引用在创建后不可变更（防止跨模式数据归属静默变化）；模式变更走新建租户 + 受控数据迁移。</div>
       </el-form>
@@ -226,5 +226,5 @@ onMounted(load)
 </script>
 
 <style scoped>
-.hint { color: #909399; font-size: 12px; line-height: 1.6; margin-top: 4px; }
+.hint { color: var(--semi-color-text-2); font-size: 12px; line-height: 1.6; margin-top: 4px; }
 </style>

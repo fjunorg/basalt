@@ -3,6 +3,9 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-rou
 import { ElLoading } from 'element-plus'
 import 'element-plus/es/components/loading/style/css'
 import App from './App.vue'
+// Semi Design 视觉对齐层（token 单一来源，置于组件样式之后生效）：
+// 详见 src/styles/semi-tokens.css 头部注释（真源逐条标注）
+import './styles/semi-tokens.css'
 import { api, token, perms, hasPerm, type MeInfo } from './api'
 
 // 页面级权限映射：meta.perms 列出进入该页面所需权限点（满足任一即可），

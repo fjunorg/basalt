@@ -3,7 +3,7 @@
     <el-result icon="warning" title="无权访问该页面" :sub-title="subTitle">
       <template #extra>
         <div v-if="needPerms.length" style="margin-bottom: 18px">
-          <div style="color: #909399; font-size: 13px; margin-bottom: 6px">所需权限点（满足任一即可）：</div>
+          <div style="color: var(--semi-color-text-2); font-size: 13px; margin-bottom: 6px">所需权限点（满足任一即可）：</div>
           <el-tag v-for="p in needPerms" :key="p" size="small" type="warning" style="margin: 2px">{{ p }}</el-tag>
         </div>
         <el-button type="primary" @click="$router.push('/overview')">返回概览</el-button>

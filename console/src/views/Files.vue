@@ -5,7 +5,7 @@
         <el-button type="primary">上传文件</el-button>
       </el-upload>
       <el-button @click="load">刷新</el-button>
-      <span style="color: #909399; font-size: 13px; margin-left: 8px">单文件 ≤ 32MB · 下载强制 attachment</span>
+      <span style="color: var(--semi-color-text-2); font-size: 13px; margin-left: 8px">单文件 ≤ 32MB · 下载强制 attachment</span>
     </div>
     <el-table :data="rows" border stripe v-loading="loading" size="small">
       <el-table-column prop="name" label="文件名" min-width="220" show-overflow-tooltip />

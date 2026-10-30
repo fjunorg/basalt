@@ -191,20 +191,20 @@ onMounted(loadAgents)
 .side { width: 280px; flex-shrink: 0; }
 .sessions { max-height: 480px; overflow-y: auto; }
 .session { padding: 8px; border-radius: 6px; cursor: pointer; }
-.session:hover { background: #f5f7fa; }
-.session.active { background: #ecf5ff; }
+.session:hover { background: var(--semi-grey-0); }
+.session.active { background: var(--semi-color-primary-light); }
 .s-title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.s-time { font-size: 12px; color: #909399; margin-top: 2px; display: flex; gap: 6px; align-items: center; }
+.s-time { font-size: 12px; color: var(--semi-color-text-2); margin-top: 2px; display: flex; gap: 6px; align-items: center; }
 .main { flex: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .chat-card { flex: 1; }
 .chat-box { height: 300px; overflow-y: auto; padding: 4px; }
 .msg { display: flex; flex-direction: column; margin: 8px 0; }
 .msg.user { align-items: flex-end; }
-.bubble { max-width: 72%; padding: 8px 12px; border-radius: 8px; white-space: pre-wrap; background: #f4f4f5; line-height: 1.6; }
-.msg.user .bubble { background: #409eff; color: #fff; }
-.tool-msg { max-width: 80%; padding: 6px 10px; border-radius: 8px; background: #fdf6ec; font-size: 12px; display: flex; gap: 6px; align-items: flex-start; }
-.tool-text { color: #b88230; word-break: break-all; max-height: 90px; overflow-y: auto; }
+.bubble { max-width: 72%; padding: 8px 12px; border-radius: 8px; white-space: pre-wrap; background: var(--semi-grey-1); line-height: 1.6; }
+.msg.user .bubble { background: var(--semi-color-primary); color: #fff; }
+.tool-msg { max-width: 80%; padding: 6px 10px; border-radius: 8px; background: var(--semi-orange-0); font-size: 12px; display: flex; gap: 6px; align-items: flex-start; }
+.tool-text { color: var(--semi-color-text-2); word-break: break-all; max-height: 90px; overflow-y: auto; }
 .input-bar { display: flex; gap: 8px; margin-top: 12px; }
 .event-card { max-height: 320px; overflow-y: auto; }
-.ev-detail { color: #606266; font-size: 12px; margin-top: 2px; word-break: break-all; }
+.ev-detail { color: var(--semi-color-text-2); font-size: 12px; margin-top: 2px; word-break: break-all; }
 </style>

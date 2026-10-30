@@ -74,7 +74,7 @@
     </el-dialog>
 
     <el-dialog v-model="viewDlg" :title="viewing?.title" width="600">
-      <p style="color: #909399; font-size: 13px">
+      <p style="color: var(--semi-color-text-2); font-size: 13px">
         {{ viewing?.doc_num }} · {{ viewing?.type === 'outbound' ? '发文' : '收文' }} · {{ viewing?.security }} · {{ viewing?.urgency }}
       </p>
       <div style="white-space: pre-wrap; line-height: 1.8">{{ viewing?.content }}</div>

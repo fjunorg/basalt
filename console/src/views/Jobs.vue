@@ -2,7 +2,7 @@
   <div class="page">
     <div class="toolbar">
       <el-button @click="load">刷新</el-button>
-      <span style="color: #909399; font-size: 13px">内置任务注册制调度（间隔执行）；分布式调度随微服务形态评估</span>
+      <span style="color: var(--semi-color-text-2); font-size: 13px">内置任务注册制调度（间隔执行）；分布式调度随微服务形态评估</span>
     </div>
     <el-table :data="rows" border stripe v-loading="loading" size="small">
       <el-table-column prop="id" label="任务 ID" width="140" />

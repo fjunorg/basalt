@@ -17,7 +17,7 @@
           <template #header>AI 用量（本账期）</template>
           <el-statistic :value="quota?.used ?? 0" title="已用 tokens" />
           <el-divider style="margin: 8px 0" />
-          <span style="color: #909399; font-size: 13px">限额：{{ quota?.limit === -1 ? '不限' : quota?.limit ?? '-' }}</span>
+          <span style="color: var(--semi-color-text-2); font-size: 13px">限额：{{ quota?.limit === -1 ? '不限' : quota?.limit ?? '-' }}</span>
         </el-card>
       </el-col>
       <el-col :span="8">

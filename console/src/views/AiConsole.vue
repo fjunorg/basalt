@@ -26,11 +26,11 @@
         <el-card>
           <template #header>本账期用量</template>
           <el-progress type="circle" :percentage="pct" :status="pct >= 100 ? 'exception' : undefined" />
-          <div style="margin-top: 12px; color: #606266; font-size: 13px">
+          <div style="margin-top: 12px; color: var(--semi-color-text-2); font-size: 13px">
             已用 <b>{{ quota?.used ?? 0 }}</b> / {{ quota?.limit === -1 ? '不限' : quota?.limit ?? '-' }} tokens
           </div>
           <el-divider />
-          <div style="font-size: 13px; color: #909399">
+          <div style="font-size: 13px; color: var(--semi-color-text-2)">
             配额按月度账期自动重置；超额后调用返回 429。
           </div>
           <template v-if="can('ai:quota:manage')">
@@ -144,7 +144,7 @@ onMounted(async () => {
 .msg.user { justify-content: flex-end; }
 .bubble {
   max-width: 72%; padding: 8px 12px; border-radius: 8px; white-space: pre-wrap;
-  background: #f4f4f5; line-height: 1.6;
+  background: var(--semi-grey-1); line-height: 1.6;
 }
-.msg.user .bubble { background: #409eff; color: #fff; }
+.msg.user .bubble { background: var(--semi-color-primary); color: #fff; }
 </style>

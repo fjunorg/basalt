@@ -2,7 +2,7 @@
   <div class="login-wrap">
     <el-card class="login-card">
       <h2 style="margin: 0 0 4px">玄武 Basalt</h2>
-      <p style="color: #909399; margin: 0 0 20px; font-size: 13px">纯开源 · AI 原生 · B/G 端后端平台</p>
+      <p style="color: var(--semi-color-text-2); margin: 0 0 20px; font-size: 13px">纯开源 · AI 原生 · B/G 端后端平台</p>
       <el-form @submit.prevent="doLogin">
         <el-form-item>
           <el-input v-model="username" placeholder="用户名" size="large" autofocus />
@@ -56,7 +56,7 @@ async function doLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1f2d3d 0%, #2b3a4b 100%);
+  background: var(--semi-grey-0);
 }
-.login-card { width: 360px; }
+.login-card { width: 360px; border-radius: var(--semi-border-radius-large); }
 </style>

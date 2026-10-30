@@ -11,7 +11,7 @@
       <el-table-column label="工具" min-width="180">
         <template #default="{ row }">
           <el-tag v-for="t in row.tools || []" :key="t" size="small" style="margin: 2px">{{ t }}</el-tag>
-          <span v-if="!(row.tools || []).length" style="color: #909399">纯对话</span>
+          <span v-if="!(row.tools || []).length" style="color: var(--semi-color-text-2)">纯对话</span>
         </template>
       </el-table-column>
       <el-table-column label="温度/轮数" width="100">
@@ -43,7 +43,7 @@
           <el-select v-model="form.tools" multiple filterable style="width: 100%" placeholder="从注册表选择（空 = 纯对话）">
             <el-option v-for="t in toolOptions" :key="t.name" :value="t.name" :label="t.name">
               <span>{{ t.name }}</span>
-              <span v-if="t.description" style="color: #909399; font-size: 12px; margin-left: 8px">{{ t.description }}</span>
+              <span v-if="t.description" style="color: var(--semi-color-text-2); font-size: 12px; margin-left: 8px">{{ t.description }}</span>
             </el-option>
           </el-select>
         </el-form-item>
