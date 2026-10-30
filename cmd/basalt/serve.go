@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -23,6 +25,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/job"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
 	"github.com/basalt-go/basalt/pkg/modules/org"
+	"github.com/basalt-go/basalt/pkg/modules/rag"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
 	"github.com/basalt-go/basalt/pkg/modules/tenant"
 	"github.com/basalt-go/basalt/pkg/modules/workflow"
@@ -41,6 +44,25 @@ func (h providerHasher) Hash(ctx context.Context, data []byte) ([]byte, error) {
 	return h.p.Hash(ctx, data)
 }
 func (h providerHasher) Algorithm() string { return h.p.Algorithm() }
+
+// ragFileSource 适配 rag.FileResolver：经 file 模块元信息 + 本地字节
+// 存储读出文件内容（file 包零改动，接线收敛在装配层）。
+type ragFileSource struct {
+	store   file.Store
+	storage file.Storage
+}
+
+func (s *ragFileSource) ResolveFile(ctx context.Context, fileID string) (string, io.ReadCloser, error) {
+	meta, err := s.store.Get(ctx, fileID)
+	if err != nil {
+		return "", nil, rag.ErrFileNotFound
+	}
+	rc, err := s.storage.Open(ctx, meta.StoragePath)
+	if err != nil {
+		return "", nil, err
+	}
+	return meta.Name, rc, nil
+}
 
 func newServeCmd() *cobra.Command {
 	var addr, env string
@@ -70,8 +92,18 @@ func newServeCmd() *cobra.Command {
 				return fmt.Errorf("upload dir: %w", err)
 			}
 
+			// rag 模块依赖件：向量化客户端。BASALT_AI_PROVIDER_URL/
+			// BASALT_AI_EMBED_MODEL 未配置时 ragEmb 为 nil——知识库/
+			// 切片照常可用，向量化与检索在请求期明确报错（不静默降级）。
+			// file 引用通道（ragFiles）在各存储分支内随 fileM 接线。
+			var ragFiles rag.FileResolver
+			ragEmb, embErr := rag.NewOpenAIEmbeddingsFromEnv()
+			if embErr != nil && !errors.Is(embErr, rag.ErrEmbedNotConfigured) {
+				return fmt.Errorf("rag embedding client: %w", embErr)
+			}
+
 			// 存储装配：memory（默认零依赖）或 sqlite（持久化：
-			// 全部 15 个模块落盘，重启延续）。postgres/openGauss 经
+			// 全部模块落盘，重启延续）。postgres/openGauss 经
 			// gormstore.OpenDB 注入对应方言连接（驱动接线随信创
 			// 真机矩阵落地，见 docs/01），装配结构已就绪。
 			var idm *identity.Module
@@ -88,6 +120,7 @@ func newServeCmd() *cobra.Command {
 			var docM *document.Module
 			var conM *contract.Module
 			var wfM *workflow.Module
+			var ragM *rag.Module
 			switch cfg.Storage {
 			case "sqlite":
 				dsn := cfg.DBDSN
@@ -120,6 +153,8 @@ func newServeCmd() *cobra.Command {
 				docM = document.NewWithStore(st.DocumentStore())
 				conM = contract.NewWithStore(st.ContractStore())
 				wfM = workflow.NewWithStores(st.WorkflowStore(), st.WorkflowDefStore())
+				ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
+				ragM = rag.NewWithStore(st.RagStore(), ragFiles, ragEmb)
 			case "postgres", "opengauss":
 				// openGauss 走 postgres 协议方言；驱动（gorm.io/driver/
 				// postgres 或信创社区驱动）接线后在此 OpenDB 注入即可，
@@ -139,6 +174,8 @@ func newServeCmd() *cobra.Command {
 				finM = finance.New()
 				docM = document.New()
 				conM = contract.New()
+				ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
+				ragM = rag.New(ragFiles, ragEmb)
 			}
 
 			// OpenAI 兼容提供方装配（私有化一等公民）：
@@ -150,7 +187,7 @@ func newServeCmd() *cobra.Command {
 				idm, tnt, adm,
 				orgM, dictM, sysM, notM,
 				fileM, jobM,
-				wfM, finM, docM, conM, gw,
+				wfM, finM, docM, conM, gw, ragM,
 			} {
 				if err := a.Registry().Register(m); err != nil {
 					return err
