@@ -186,7 +186,15 @@ func (m *Module) runSSE(w http.ResponseWriter, r *http.Request, def Definition, 
 // ai-safety：审核在 gateway.ChatComplete 内部（输入侧拦截/输出侧
 // 文本与工具参数送检），ErrSafetyRejected 映射 safety_rejected 终态。
 func (m *Module) execute(ctx context.Context, def Definition, run Run, subject, actor string, emit func(Event)) (Run, error) {
+	// fail 落 failed 终态并统一推送 run.failed 事件（契约 §4.1：
+	// 流内失败终态必须下发——同步模式 emit 为 no-op，SSE 模式
+	// 在流关闭前让客户端拿到失败原因，而非静默断流）。
 	fail := func(status, msg string) (Run, error) {
+		if status == RunStatusFailed {
+			emit(Event{EvRunFailed, map[string]any{
+				"run_id": run.ID, "status": RunStatusFailed, "error": msg,
+			}})
+		}
 		now := time.Now().UTC()
 		run.Status, run.Error, run.FinishedAt = status, msg, &now
 		_ = m.store.UpdateRun(ctx, run)

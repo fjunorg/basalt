@@ -615,6 +615,77 @@ func TestRunSSESafetyRejected(t *testing.T) {
 	}
 }
 
+// SSE 失败终态：引擎错误路径必须推送 run.failed 后关流（契约 §4.1，
+// 前端联调发现的回归：曾只发 run.started 即静默关闭）。
+func TestRunSSEFailed(t *testing.T) {
+	cases := []struct {
+		name    string
+		gw      *stubGateway
+		rounds  int
+		wantErr string
+	}{
+		{"no-provider", &stubGateway{
+			script: []gateway.ChatResult{{Content: "x"}},
+			errAt:  1, err: gateway.ErrNoProvider,
+		}, 5, "no AI provider registered"},
+		{"upstream-error", &stubGateway{
+			script: []gateway.ChatResult{{Content: "x"}},
+			errAt:  1, err: gateway.ErrBadUpstream,
+		}, 5, "upstream provider error"},
+		{"max-rounds", &stubGateway{
+			script: []gateway.ChatResult{toolCallRound("c1", "echo.tool", `{"x":"a"}`)},
+		}, 2, "max tool rounds"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gw := tc.gw
+			m := mkModule(gw)
+			h := newApp(t, m)
+			tok := adminToken(t, h)
+			_, data := do(t, h, http.MethodPost, "/api/v1/agent/agents", tok, map[string]any{
+				"name": "失败流", "model": "m1", "tools": []string{"echo.tool"},
+				"max_tool_rounds": tc.rounds,
+			})
+			var def agent.Definition
+			_ = json.Unmarshal(data, &def)
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/agent/agents/"+def.ID+"/runs",
+				bytes.NewReader([]byte(`{"input":"x","stream":true}`)))
+			req.Header.Set("Authorization", "Bearer "+tok)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("sse: %d", rec.Code)
+			}
+			events := parseSSE(rec.Body.String())
+			// 失败终态必须是流的最后一个事件（首轮即错的场景恰为
+			// started+failed 两个；工具循环达上限的场景中间含工具事件）。
+			if len(events) < 2 || events[0][0] != "run.started" ||
+				events[len(events)-1][0] != "run.failed" {
+				t.Fatalf("%s: events = %v（失败终态必须以 run.failed 下发）", tc.name, events)
+			}
+			var rf struct {
+				RunID  string `json:"run_id"`
+				Status string `json:"status"`
+				Error  string `json:"error"`
+			}
+			_ = json.Unmarshal([]byte(events[len(events)-1][1]), &rf)
+			if rf.Status != "failed" || !strings.Contains(rf.Error, tc.wantErr) {
+				t.Fatalf("%s: run.failed = %+v", tc.name, rf)
+			}
+			// 流内终态与持久化记录一致
+			_, runs := do(t, h, http.MethodGet, "/api/v1/agent/agents/"+def.ID+"/runs", tok, nil)
+			var lst struct {
+				Items []agent.Run `json:"items"`
+			}
+			_ = json.Unmarshal(runs, &lst)
+			if len(lst.Items) != 1 || lst.Items[0].Status != "failed" ||
+				!strings.Contains(lst.Items[0].Error, tc.wantErr) {
+				t.Fatalf("%s: persisted = %+v", tc.name, lst.Items)
+			}
+		})
+	}
+}
+
 // ---------- rag 集成（确定性 stub embedding） ----------
 
 func TestRagToolIntegration(t *testing.T) {
