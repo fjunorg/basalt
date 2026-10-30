@@ -20,13 +20,15 @@ const Version = "0.2.0"
 // 权限点。
 const (
 	PermRead = "audit:read"
+	PermSign = "audit:sign" // 链尾签名（敏感操作，与读分离）
 )
 
 // Module 是审计模块本体。依赖 identity 以复用认证与权限校验。
 // 存储可插拔：默认内存链；持久化经 NewWithStore 注入 GORM 实现。
 type Module struct {
-	store Store
-	algo  string
+	store       Store
+	algo        string
+	chainSigner ChainSigner // 链尾签名器（可选，serve 注入）
 }
 
 func New() *Module { return &Module{} }
@@ -58,11 +60,27 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 	g := a.Router().Group("/api/v1/audit")
 	g.Handle(http.MethodGet, "/events", auth(req(PermRead, m.listEvents)))
 	g.Handle(http.MethodGet, "/verify", auth(req(PermRead, m.verify)))
+	// 链尾签名（store 支持 SignedChain 且签名器已注入时注册；
+	// 内存链/未启用签名 → 端点 503 明确报错，不静默隐藏）。
+	g.Handle(http.MethodPost, "/chain/signatures", auth(req(PermSign, m.signHead)))
+	g.Handle(http.MethodGet, "/chain/signatures", auth(req(PermRead, m.listHeadSigs)))
+	g.Handle(http.MethodGet, "/chain/signatures/verify", auth(req(PermRead, m.verifyHeadSigs)))
 	return nil
 }
 
 func (*Module) Start(context.Context) error { return nil }
 func (*Module) Stop(context.Context) error  { return nil }
+
+// SetChainSigner 注入链尾签名器（serve 装配期；SM2 Provider 适配）。
+func (m *Module) SetChainSigner(s ChainSigner) { m.chainSigner = s }
+
+// signedChain 返回支持签名的链实现（类型断言，nil = 不支持）。
+func (m *Module) signedChain() SignedChain {
+	if sc, ok := m.store.(SignedChain); ok {
+		return sc
+	}
+	return nil
+}
 
 // Count 返回审计链事件总数（供监控与内置任务）。
 func (m *Module) Count(ctx context.Context) int {
@@ -145,5 +163,5 @@ func kvToMap(kv []any) map[string]any {
 
 // Describe 实现模块自描述。
 func (*Module) Describe() app.ModuleInfo {
-	return app.ModuleInfo{Name: "audit", Version: Version, Permissions: []string{PermRead}}
+	return app.ModuleInfo{Name: "audit", Version: Version, Permissions: []string{PermRead, PermSign}}
 }

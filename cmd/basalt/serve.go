@@ -221,6 +221,21 @@ func newServeCmd() *cobra.Command {
 			// 持久化路径词库/策略跨重启延续，内存路径随进程）。
 			gw.SetInspector(safetyM.Inspector())
 
+			// SM2 链尾签名（可选，默认关闭维持现状）：BASALT_SM2_CHAIN_SIGN=on
+			// 时审计链获得防"整库重算"的签名锚（私钥不入库）。私钥经
+			// BASALT_SM2_PRIVATE_KEY 配置；未配置则进程内生成（重启换钥，
+			// 仅影响新签名——历史签名公钥随记录持久化，验签不受影响）。
+			if os.Getenv("BASALT_SM2_CHAIN_SIGN") == "on" {
+				sm2Signer, err := crypto.NewSM2ProviderFromEnv()
+				if err != nil {
+					return fmt.Errorf("sm2 chain signer: %w", err)
+				}
+				if sm2Signer.Generated() {
+					a.Logger().Warn("SM2 signer key generated in-process (rotates on restart); set BASALT_SM2_PRIVATE_KEY for production")
+				}
+				adm.SetChainSigner(sm2Signer)
+			}
+
 			// agent 编排接线：LLM 一律经 gateway 统一层（配额/审核/
 			// 记账/审计），工具注册表挂 rag 检索工具（接口缝可扩展）。
 			agentTools.Register(&agent.RagSearchTool{RAG: ragM})

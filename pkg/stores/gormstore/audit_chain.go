@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -25,11 +26,14 @@ type AuditChain struct {
 
 // NewAuditChain 迁移表结构并返回链实现。
 func NewAuditChain(db *gorm.DB, h audit.Hasher) (*AuditChain, error) {
-	if err := db.AutoMigrate(&audit.Event{}); err != nil {
+	if err := db.AutoMigrate(&audit.Event{}, &audit.ChainSignature{}); err != nil {
 		return nil, err
 	}
 	return &AuditChain{db: db, hasher: h}, nil
 }
+
+// 编译期接口对齐检查：链尾签名扩展。
+var _ audit.SignedChain = (*AuditChain)(nil)
 
 // Record 实现 audit.Recorder。
 func (c *AuditChain) Record(ctx context.Context, e audit.Event) error {
@@ -122,4 +126,73 @@ func (c *AuditChain) canonical(e audit.Event) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(d), nil
+}
+
+// ---------- 链尾签名（audit.SignedChain 实现） ----------
+
+// SignHead 对当前链尾 (seq, hash) 签名并持久化。同 seq 重复签名
+// 覆盖旧记录（重签即更新时点锚，非追加语义——链尾只会前进）。
+func (c *AuditChain) SignHead(ctx context.Context, s audit.ChainSigner) (audit.ChainSignature, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var last audit.Event
+	if err := c.db.WithContext(ctx).Order("seq DESC").First(&last).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return audit.ChainSignature{}, audit.ErrEmptyChain
+		}
+		return audit.ChainSignature{}, err
+	}
+	data := audit.ChainSignData(last.Seq, last.Hash)
+	sig, err := s.Sign(ctx, data)
+	if err != nil {
+		return audit.ChainSignature{}, fmt.Errorf("audit: sign head: %w", err)
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	rec := audit.ChainSignature{
+		Seq: last.Seq, Hash: last.Hash,
+		Sig: hex.EncodeToString(sig), Algo: s.Algorithm(),
+		PubKey: s.PublicKeyHex(), SignTime: now,
+	}
+	if err := c.db.WithContext(ctx).Save(&rec).Error; err != nil {
+		return audit.ChainSignature{}, err
+	}
+	return rec, nil
+}
+
+// VerifyHeadSignatures 核验签名记录：SigOK（签名密码学有效，按
+// 记录内公钥）+ ChainOK（该 seq 链事件在位且哈希一致）。
+func (c *AuditChain) VerifyHeadSignatures(ctx context.Context, verifier audit.ChainSigner, limit int) ([]audit.ChainSignatureCheck, error) {
+	q := c.db.WithContext(ctx).Model(&audit.ChainSignature{}).Order("seq DESC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	var recs []audit.ChainSignature
+	if err := q.Find(&recs).Error; err != nil {
+		return nil, err
+	}
+	out := make([]audit.ChainSignatureCheck, 0, len(recs))
+	for _, rec := range recs {
+		check := audit.ChainSignatureCheck{ChainSignature: rec, ChainOK: false}
+		sig, err := hex.DecodeString(rec.Sig)
+		if err == nil {
+			check.SigOK, _ = verifier.VerifyWith(ctx, rec.PubKey, audit.ChainSignData(rec.Seq, rec.Hash), sig)
+		}
+		var ev audit.Event
+		if err := c.db.WithContext(ctx).First(&ev, "seq = ?", rec.Seq).Error; err == nil {
+			check.ChainOK = ev.Hash == rec.Hash
+		}
+		out = append(out, check)
+	}
+	return out, nil
+}
+
+// ListHeadSignatures 倒序列出签名记录。
+func (c *AuditChain) ListHeadSignatures(ctx context.Context, limit int) ([]audit.ChainSignature, error) {
+	q := c.db.WithContext(ctx).Model(&audit.ChainSignature{}).Order("seq DESC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	var out []audit.ChainSignature
+	err := q.Find(&out).Error
+	return out, err
 }
