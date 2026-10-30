@@ -30,6 +30,8 @@ const routes: RouteRecordRaw[] = [
   // SSO 授权确认页（Layout 外全屏流程，登录级）：三方应用引导用户至此，
   // 确认后顶层跳转回应用（契约 sso-api-contract.md §2）
   { path: '/sso/authorize', component: () => import('./views/SsoAuthorize.vue'), meta: { title: '授权确认' } },
+  // 三方登录回调页（§4 修订版）：后端 callback 302 至此（token/错误参数）
+  { path: '/sso/social/callback', component: () => import('./views/SsoSocialCallback.vue'), meta: { title: '三方登录' } },
   {
     path: '/',
     component: () => import('./views/Layout.vue'),

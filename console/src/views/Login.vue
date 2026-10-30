@@ -11,6 +11,7 @@
           <el-input v-model="password" type="password" placeholder="密码" size="large" show-password @keyup.enter="doLogin" />
         </el-form-item>
         <el-button type="primary" size="large" style="width: 100%" :loading="loading" @click="doLogin">登 录</el-button>
+        <el-button size="large" style="width: 100%; margin: 12px 0 0" @click="dingtalkLogin">钉钉登录</el-button>
       </el-form>
     </el-card>
   </div>
@@ -46,6 +47,21 @@ async function doLogin() {
     ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
+  }
+}
+
+// 钉钉三方登录（契约 §4 修订版）：取 authorize-url → 顶层跳转；
+// 回跳闭环由后端 callback 302 至 /#/sso/social/callback 完成。
+// 未配置 BASALT_SSO_DINGTALK_* 时端点 404，按提示处理（按钮常显，
+// 点击反馈"未配置"——避免预探测请求）。
+async function dingtalkLogin() {
+  try {
+    const d = await api<{ url: string; state: string }>('/api/v1/identity/sso/social/dingtalk/authorize-url')
+    // state 由服务端 HMAC 签名校验（防伪主防线）；预存一份供排障对照
+    if (d.state) sessionStorage.setItem('basalt_sso_state', d.state)
+    window.location.href = d.url
+  } catch (e) {
+    ElMessage.error('钉钉登录不可用：' + errMsg(e))
   }
 }
 </script>
