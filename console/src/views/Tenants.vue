@@ -49,30 +49,33 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api, hasPerm } from '../api'
+import type { TableColumnCtx } from 'element-plus'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface TenantRow { id: string; code: string; name: string; isolation_mode: string; status: string; created_at: string }
+interface UserRow { id: string; username: string; email: string; tenant_id: string; status: string }
 
-const rows = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const rows = ref<TenantRow[]>([])
 const loading = ref(false)
 const dlg = ref(false)
 const usersDlg = ref(false)
-const viewing = ref(null)
-const members = ref([])
+const viewing = ref<TenantRow | null>(null)
+const members = ref<UserRow[]>([])
 const form = reactive({ code: '', name: '', isolation_mode: 'shared-schema' })
 
-const fmtTime = (r, c, v) => new Date(v).toLocaleString('zh-CN')
+const fmtTime = (_r: TenantRow, _c: TableColumnCtx<TenantRow>, v: string) => new Date(v).toLocaleString('zh-CN')
 
 async function load() {
   loading.value = true
   try {
-    rows.value = await api('/api/v1/tenant/tenants')
+    rows.value = await api<TenantRow[]>('/api/v1/tenant/tenants')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
@@ -86,18 +89,18 @@ async function save() {
     Object.assign(form, { code: '', name: '', isolation_mode: 'shared-schema' })
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function viewUsers(row) {
+async function viewUsers(row: TenantRow) {
   viewing.value = row
   try {
-    members.value = await api(`/api/v1/identity/users`)
-    members.value = members.value.filter((u) => u.tenant_id === row.id)
+    const all = await api<UserRow[]>(`/api/v1/identity/users`)
+    members.value = all.filter((u) => u.tenant_id === row.id)
     usersDlg.value = true
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 

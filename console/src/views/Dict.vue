@@ -66,29 +66,31 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface DictType { id: string; code: string; name: string; remark?: string }
+interface DictData { id: string; label: string; value: string; sort: number; status: string }
 
-const types = ref([])
-const datas = ref([])
-const current = ref(null)
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const types = ref<DictType[]>([])
+const datas = ref<DictData[]>([])
+const current = ref<DictType | null>(null)
 const typeDlg = ref(false)
 const dataDlg = ref(false)
 const typeForm = reactive({ code: '', name: '', remark: '' })
 const dataForm = reactive({ label: '', value: '', sort: 0 })
 
 async function loadTypes() {
-  types.value = await api('/api/v1/dict/types').catch(() => [])
+  types.value = await api<DictType[]>('/api/v1/dict/types').catch(() => [])
 }
 
-async function pickType(row) {
+async function pickType(row: DictType | null) {
   current.value = row
-  if (row) datas.value = await api(`/api/v1/dict/datas?type=${row.code}`).catch(() => [])
+  if (row) datas.value = await api<DictData[]>(`/api/v1/dict/datas?type=${row.code}`).catch(() => [])
 }
 
 async function saveType() {
@@ -100,23 +102,23 @@ async function saveType() {
     Object.assign(typeForm, { code: '', name: '', remark: '' })
     await loadTypes()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function delType(row) {
+async function delType(row: DictType) {
   try {
     await ElMessageBox.confirm(`删除类型「${row.code}」？`, '确认', { type: 'warning' })
     await api(`/api/v1/dict/types/${row.id}`, { method: 'DELETE' })
     if (current.value?.id === row.id) { current.value = null; datas.value = [] }
     await loadTypes()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message)
+    if (e !== 'cancel') ElMessage.error(errMsg(e))
   }
 }
 
 async function saveData() {
-  if (!dataForm.label || !dataForm.value) return
+  if (!dataForm.label || !dataForm.value || !current.value) return
   try {
     await api('/api/v1/dict/datas', {
       method: 'POST',
@@ -127,17 +129,18 @@ async function saveData() {
     Object.assign(dataForm, { label: '', value: '', sort: 0 })
     await pickType(current.value)
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function delData(row) {
+async function delData(row: DictData) {
+  if (!current.value) return
   try {
     await ElMessageBox.confirm(`删除「${row.label}」？`, '确认', { type: 'warning' })
     await api(`/api/v1/dict/datas/${row.id}`, { method: 'DELETE' })
     await pickType(current.value)
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message)
+    if (e !== 'cancel') ElMessage.error(errMsg(e))
   }
 }
 

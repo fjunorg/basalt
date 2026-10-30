@@ -16,11 +16,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { api, token, perms } from '../api'
+import { api, token, perms, errMsg, type MeInfo } from '../api'
 
 const username = ref('admin')
 const password = ref('')
@@ -31,19 +31,19 @@ async function doLogin() {
   if (!username.value || !password.value) return
   loading.value = true
   try {
-    const data = await api('/api/v1/identity/login', {
+    const data = await api<{ token: string }>('/api/v1/identity/login', {
       method: 'POST',
       body: { username: username.value, password: password.value },
     })
     token.set(data.token)
     // 缓存权限点供路由守卫与按钮级控制（每次登录刷新）
     try {
-      const me = await api('/api/v1/identity/me')
+      const me = await api<MeInfo>('/api/v1/identity/me')
       perms.set(me.permissions || [])
     } catch { /* 权限拉取失败不阻断登录 */ }
     router.push('/')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }

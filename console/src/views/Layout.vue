@@ -48,25 +48,25 @@
   </el-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Odometer, Setting, Briefcase, Monitor } from '@element-plus/icons-vue'
-import { api, token, perms, hasPerm } from '../api'
+import { api, token, perms, hasPerm, type MeInfo } from '../api'
 
-const me = ref(null)
+const me = ref<MeInfo | null>(null)
 const router = useRouter()
 
-// 菜单显隐与路由守卫共用路由 meta.perms 这一份映射（main.js 定义），
+// 菜单显隐与路由守卫共用路由 meta.perms 这一份映射（main.ts 定义），
 // 管理项按权限点显隐；工作台五页面向个人（auth-only）不做菜单级收敛。
-const canRoute = (path) => {
+const canRoute = (path: string) => {
   const need = router.resolve(path).meta?.perms || []
   return !need.length || need.some((p) => hasPerm(me.value?.permissions, p))
 }
 
 onMounted(async () => {
   try {
-    me.value = await api('/api/v1/identity/me')
+    me.value = await api<MeInfo>('/api/v1/identity/me')
     // 回写权限快照：角色变更后刷新页面即生效，保持守卫数据与后端一致
     perms.set(me.value?.permissions || [])
   } catch { /* 401 已由 api 层跳登录 */ }

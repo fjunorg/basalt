@@ -55,26 +55,35 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface ContractRow {
+  id: string
+  contract_num: string
+  title: string
+  party: string
+  amount: number
+  expire_date?: string
+  status: string
+}
 
-const rows = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const rows = ref<ContractRow[]>([])
 const loading = ref(false)
 const dlg = ref(false)
 const scope = ref('mine')
 const form = reactive({ contract_num: '', title: '', party: '', amount: 1000000, sign_date: '', expire_date: '' })
 
-const stLabel = (s) => ({ draft: '草稿', reviewing: '会签中', active: '生效中', rejected: '被驳回', finished: '已完结' }[s] || s)
-const stType = (s) => ({ draft: 'info', reviewing: 'warning', active: 'success', rejected: 'danger', finished: '' }[s] || 'info')
+const stLabel = (s: string) => ({ draft: '草稿', reviewing: '会签中', active: '生效中', rejected: '被驳回', finished: '已完结' }[s] || s)
+const stType = (s: string) => ({ draft: 'info', reviewing: 'warning', active: 'success', rejected: 'danger', finished: '' }[s] || 'info')
 
-const expiring = (row) => {
+const expiring = (row: ContractRow) => {
   if (!row.expire_date || row.status !== 'active') return false
-  const days = (new Date(row.expire_date) - Date.now()) / 86400000
+  const days = (new Date(row.expire_date).getTime() - Date.now()) / 86400000
   return days >= 0 && days <= 30
 }
 
@@ -82,10 +91,10 @@ async function load() {
   loading.value = true
   try {
     const q = scope.value === 'all' ? '?scope=all' : ''
-    rows.value = await api('/api/v1/contracts' + q)
+    rows.value = await api<ContractRow[]>('/api/v1/contracts' + q)
   } catch (e) {
     rows.value = []
-    ElMessage.warning(e.message)
+    ElMessage.warning(errMsg(e))
   } finally {
     loading.value = false
   }
@@ -103,27 +112,27 @@ async function save() {
     Object.assign(form, { contract_num: '', title: '', party: '', amount: 1000000, sign_date: '', expire_date: '' })
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function submit(row) {
+async function submit(row: ContractRow) {
   try {
     await api(`/api/v1/contracts/${row.id}/submit`, { method: 'POST' })
     ElMessage.success('已提交会签')
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function finish(row) {
+async function finish(row: ContractRow) {
   try {
     await api(`/api/v1/contracts/${row.id}/finish`, { method: 'POST' })
     ElMessage.success('已完结')
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 

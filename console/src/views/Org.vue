@@ -72,21 +72,23 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface DeptRow { id: string; parent_id: string; name: string; sort: number; status: string; children?: DeptRow[] }
+interface PostRow { id: string; code: string; name: string; sort: number; status: string }
+
+const can = (p: string) => hasPerm(perms.get(), p)
 
 const tab = ref('dept')
-const depts = ref([])
-const posts = ref([])
+const depts = ref<DeptRow[]>([])
+const posts = ref<PostRow[]>([])
 const loading = ref(false)
 const deptDlg = ref(false)
 const postDlg = ref(false)
-const editing = ref(null)
+const editing = ref<DeptRow | null>(null)
 const deptForm = reactive({ parent_id: '', name: '', sort: 0 })
 const postForm = reactive({ code: '', name: '', sort: 0 })
 
@@ -95,9 +97,9 @@ const deptOptions = computed(() => depts.value)
 async function loadDepts() {
   loading.value = true
   try {
-    depts.value = await api('/api/v1/org/depts/tree')
+    depts.value = await api<DeptRow[]>('/api/v1/org/depts/tree')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
@@ -106,15 +108,15 @@ async function loadDepts() {
 async function loadPosts() {
   loading.value = true
   try {
-    posts.value = await api('/api/v1/org/posts')
+    posts.value = await api<PostRow[]>('/api/v1/org/posts')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
 }
 
-function openDept(row) {
+function openDept(row?: DeptRow) {
   editing.value = row || null
   Object.assign(deptForm, row ? { parent_id: row.parent_id, name: row.name, sort: row.sort }
     : { parent_id: '', name: '', sort: 0 })
@@ -133,18 +135,18 @@ async function saveDept() {
     deptDlg.value = false
     await loadDepts()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function delDept(row) {
+async function delDept(row: DeptRow) {
   try {
     await ElMessageBox.confirm(`删除部门「${row.name}」？`, '确认', { type: 'warning' })
     await api(`/api/v1/org/depts/${row.id}`, { method: 'DELETE' })
     ElMessage.success('已删除')
     await loadDepts()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message)
+    if (e !== 'cancel') ElMessage.error(errMsg(e))
   }
 }
 
@@ -157,18 +159,18 @@ async function savePost() {
     Object.assign(postForm, { code: '', name: '', sort: 0 })
     await loadPosts()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function delPost(row) {
+async function delPost(row: PostRow) {
   try {
     await ElMessageBox.confirm(`删除岗位「${row.name}」？`, '确认', { type: 'warning' })
     await api(`/api/v1/org/posts/${row.id}`, { method: 'DELETE' })
     ElMessage.success('已删除')
     await loadPosts()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message)
+    if (e !== 'cancel') ElMessage.error(errMsg(e))
   }
 }
 

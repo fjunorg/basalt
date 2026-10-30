@@ -131,20 +131,25 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface ExpenseRow { id: string; business_key: string; reason: string; amount: number; status: string; created_at: string }
+interface InvoiceRow { id: string; code: string; title: string; tax_no: string; amount: number; date: string }
+interface BudgetRow { dept_id: string; period: string; limit: number; used: number }
+interface PaymentRow { id: string; payee: string; amount: number; status: string; created_at: string }
+interface DeptRow { id: string; name: string; children?: DeptRow[] }
+
+const can = (p: string) => hasPerm(perms.get(), p)
 
 const tab = ref('expense')
-const expenses = ref([])
-const invoices = ref([])
-const budgets = ref([])
-const payments = ref([])
-const deptFlat = ref([])
+const expenses = ref<ExpenseRow[]>([])
+const invoices = ref<InvoiceRow[]>([])
+const budgets = ref<BudgetRow[]>([])
+const payments = ref<PaymentRow[]>([])
+const deptFlat = ref<DeptRow[]>([])
 const loading = ref(false)
 const dlg = ref(false)
 const invDlg = ref(false)
@@ -153,26 +158,29 @@ const budgetLimit = ref(1000000)
 const form = reactive({ dept_id: '', reason: '', items: [{ name: '', yuan: 10 }] })
 const invForm = reactive({ code: '', title: '', tax_no: '', amount: 1000, date: '' })
 
-const statusLabel = (s) => ({ draft: '草稿', submitted: '审批中', approved: '已批', rejected: '被驳回', paid: '已付款' }[s] || s)
-const statusType = (s) => ({ draft: 'info', submitted: 'warning', approved: 'success', rejected: 'danger', paid: 'primary' }[s] || 'info')
-const deptName = (id) => deptFlat.value.find((d) => d.id === id)?.name || id
+const statusLabel = (s: string) => ({ draft: '草稿', submitted: '审批中', approved: '已批', rejected: '被驳回', paid: '已付款' }[s] || s)
+const statusType = (s: string) => ({ draft: 'info', submitted: 'warning', approved: 'success', rejected: 'danger', paid: 'primary' }[s] || 'info')
+const deptName = (id: string) => deptFlat.value.find((d) => d.id === id)?.name || id
 
-const flatten = (nodes, out) => { for (const n of nodes || []) { out.push(n); flatten(n.children, out) } return out }
+const flatten = (nodes: DeptRow[] | undefined, out: DeptRow[]): DeptRow[] => {
+  for (const n of nodes || []) { out.push(n); flatten(n.children, out) }
+  return out
+}
 
 async function loadExpenses() {
   loading.value = true
   try {
-    expenses.value = await api('/api/v1/finance/expenses')
+    expenses.value = await api<ExpenseRow[]>('/api/v1/finance/expenses')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
 }
 
-async function loadInvoices() { invoices.value = await api('/api/v1/finance/invoices').catch(() => []) }
-async function loadBudgets() { budgets.value = await api('/api/v1/finance/budgets').catch(() => []) }
-async function loadPayments() { payments.value = await api('/api/v1/finance/payments').catch(() => []) }
+async function loadInvoices() { invoices.value = await api<InvoiceRow[]>('/api/v1/finance/invoices').catch(() => []) }
+async function loadBudgets() { budgets.value = await api<BudgetRow[]>('/api/v1/finance/budgets').catch(() => []) }
+async function loadPayments() { payments.value = await api<PaymentRow[]>('/api/v1/finance/payments').catch(() => []) }
 
 async function save() {
   const items = form.items
@@ -192,21 +200,21 @@ async function save() {
     Object.assign(form, { dept_id: '', reason: '', items: [{ name: '', yuan: 10 }] })
     await loadExpenses()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function submit(row) {
+async function submit(row: ExpenseRow) {
   try {
     await api(`/api/v1/finance/expenses/${row.id}/submit`, { method: 'POST' })
     ElMessage.success('已提交审批')
     await loadExpenses()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function pay(row) {
+async function pay(row: ExpenseRow) {
   try {
     await api('/api/v1/finance/payments', {
       method: 'POST',
@@ -215,7 +223,7 @@ async function pay(row) {
     ElMessage.success('已付款')
     await Promise.all([loadExpenses(), loadPayments()])
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
@@ -228,7 +236,7 @@ async function saveInvoice() {
     Object.assign(invForm, { code: '', title: '', tax_no: '', amount: 1000, date: '' })
     await loadInvoices()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
@@ -245,13 +253,13 @@ async function saveBudget() {
     ElMessage.success('已设置')
     await loadBudgets()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
 onMounted(async () => {
   await loadExpenses()
-  const tree = await api('/api/v1/org/depts/tree').catch(() => [])
+  const tree = await api<DeptRow[]>('/api/v1/org/depts/tree').catch(() => [])
   deptFlat.value = flatten(tree, [])
 })
 </script>

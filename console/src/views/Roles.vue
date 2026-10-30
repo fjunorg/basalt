@@ -37,32 +37,33 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface RoleRow { id: string; code: string; name: string; permissions?: string[] }
 
-const rows = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const rows = ref<RoleRow[]>([])
 const loading = ref(false)
 const dlg = ref(false)
-const editing = ref(null)
+const editing = ref<RoleRow | null>(null)
 const form = reactive({ code: '', name: '', perms: '' })
 
 async function load() {
   loading.value = true
   try {
-    rows.value = await api('/api/v1/identity/roles')
+    rows.value = await api<RoleRow[]>('/api/v1/identity/roles')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
 }
 
-function openEdit(row) {
+function openEdit(row: RoleRow) {
   editing.value = row
   form.code = row.code
   form.name = row.name
@@ -91,18 +92,18 @@ async function save() {
     Object.assign(form, { code: '', name: '', perms: '' })
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function del(row) {
+async function del(row: RoleRow) {
   try {
     await ElMessageBox.confirm(`删除角色 ${row.code}？`, '确认', { type: 'warning' })
     await api(`/api/v1/identity/roles/${row.id}`, { method: 'DELETE' })
     ElMessage.success('已删除')
     await load()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message)
+    if (e !== 'cancel') ElMessage.error(errMsg(e))
   }
 }
 

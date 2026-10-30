@@ -82,33 +82,44 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface DocRow {
+  id: string
+  doc_num: string
+  type: 'outbound' | 'inbound'
+  title: string
+  security: string
+  urgency: string
+  status: string
+  content?: string
+  correspond?: string
+}
 
-const rows = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const rows = ref<DocRow[]>([])
 const loading = ref(false)
 const dlg = ref(false)
 const viewDlg = ref(false)
-const viewing = ref(null)
+const viewing = ref<DocRow | null>(null)
 const scope = ref('mine')
 const form = reactive({ type: 'outbound', doc_num: '', title: '', security: '普通', urgency: '平急', correspond: '', content: '' })
 
-const stLabel = (s) => ({ draft: '草稿', circulating: '流转中', approved: '待归档', rejected: '已退回', archived: '已归档' }[s] || s)
-const stType = (s) => ({ draft: 'info', circulating: 'warning', approved: 'success', rejected: 'danger', archived: '' }[s] || 'info')
+const stLabel = (s: string) => ({ draft: '草稿', circulating: '流转中', approved: '待归档', rejected: '已退回', archived: '已归档' }[s] || s)
+const stType = (s: string) => ({ draft: 'info', circulating: 'warning', approved: 'success', rejected: 'danger', archived: '' }[s] || 'info')
 
 async function load() {
   loading.value = true
   try {
     const q = scope.value === 'all' ? '?scope=all' : ''
-    rows.value = await api('/api/v1/documents' + q)
+    rows.value = await api<DocRow[]>('/api/v1/documents' + q)
   } catch (e) {
     rows.value = []
-    ElMessage.warning(e.message)
+    ElMessage.warning(errMsg(e))
   } finally {
     loading.value = false
   }
@@ -123,31 +134,31 @@ async function save() {
     Object.assign(form, { type: 'outbound', doc_num: '', title: '', security: '普通', urgency: '平急', correspond: '', content: '' })
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function submit(row) {
+async function submit(row: DocRow) {
   try {
     await api(`/api/v1/documents/${row.id}/submit`, { method: 'POST' })
     ElMessage.success('已提交审签')
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function archive(row) {
+async function archive(row: DocRow) {
   try {
     await api(`/api/v1/documents/${row.id}/archive`, { method: 'POST' })
     ElMessage.success('已归档')
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-function view(row) {
+function view(row: DocRow) {
   viewing.value = row
   viewDlg.value = true
 }

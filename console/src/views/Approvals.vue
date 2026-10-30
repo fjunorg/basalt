@@ -110,41 +110,54 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api } from '../api'
+import type { TableColumnCtx } from 'element-plus'
+import { api, errMsg } from '../api'
 
-const statusType = (s) => ({ approved: 'success', rejected: 'danger', canceled: 'info' }[s] || 'warning')
-
-const tab = ref('todo')
-const todo = ref([])
-const users = ref([])
-const loading = ref(false)
-const saving = ref(false)
-const form = reactive({ business_key: '', summary: '', approvers: [], mode: 'countersign', defKey: '' })
-const defs = ref([])
-const pickedSteps = ref([])
-const dlgDelegate = ref(false)
-const delegateTo = ref('')
-const delegating = ref(null)
-
-async function loadDefs() {
-  defs.value = await api('/api/v1/wf/definitions').catch(() => [])
+interface WfStep { name: string; approvers: string[]; mode: 'countersign' | 'or-sign' }
+interface WfDefRow { key: string; name: string; steps: WfStep[]; status: string }
+interface UserRow { id: string; username: string }
+interface InstanceRow { id: string; business_key: string; summary: string; status: string; created_at: string }
+interface InstanceDetail {
+  id: string
+  instance?: { business_key?: string; status?: string; mode?: 'countersign' | 'or-sign' }
+  actions?: Array<{ act: string; time: string; actor_id?: string; comment?: string }>
 }
 
-function onDefPick(key) {
+const statusType = (s: string) => ({ approved: 'success', rejected: 'danger', canceled: 'info' }[s] || 'warning')
+
+const tab = ref('todo')
+const todo = ref<InstanceRow[]>([])
+const users = ref<UserRow[]>([])
+const loading = ref(false)
+const saving = ref(false)
+const form = reactive<{ business_key: string; summary: string; approvers: string[]; mode: 'countersign' | 'or-sign'; defKey: string }>({
+  business_key: '', summary: '', approvers: [], mode: 'countersign', defKey: '',
+})
+const defs = ref<WfDefRow[]>([])
+const pickedSteps = ref<WfStep[]>([])
+const dlgDelegate = ref(false)
+const delegateTo = ref('')
+const delegating = ref<InstanceRow | null>(null)
+
+async function loadDefs() {
+  defs.value = await api<WfDefRow[]>('/api/v1/wf/definitions').catch(() => [])
+}
+
+function onDefPick(key: string) {
   pickedSteps.value = defs.value.find((d) => d.key === key)?.steps || []
 }
 
-function openDelegate(row) {
+function openDelegate(row: InstanceRow) {
   delegating.value = row
   delegateTo.value = ''
   dlgDelegate.value = true
 }
 
 async function doDelegate() {
-  if (!delegateTo.value) return
+  if (!delegateTo.value || !delegating.value) return
   try {
     await api(`/api/v1/wf/instances/${delegating.value.id}/delegate`, {
       method: 'POST',
@@ -154,48 +167,48 @@ async function doDelegate() {
     dlgDelegate.value = false
     await loadTodo()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 const listScope = ref('mine')
-const instances = ref([])
+const instances = ref<InstanceRow[]>([])
 const listLoading = ref(false)
 const detailDlg = ref(false)
-const detail = ref(null)
+const detail = ref<InstanceDetail | null>(null)
 
 async function loadInstances() {
   listLoading.value = true
   try {
     const path = listScope.value === 'all' ? '/api/v1/wf/instances/all' : '/api/v1/wf/instances/mine'
-    const d = await api(path)
+    const d = await api<{ items: InstanceRow[] }>(path)
     instances.value = d.items || []
   } catch (e) {
     instances.value = []
-    ElMessage.warning('无权查看全部实例（' + e.message + '）')
+    ElMessage.warning('无权查看全部实例（' + errMsg(e) + '）')
   } finally {
     listLoading.value = false
   }
 }
 
-async function viewDetail(row) {
-  detail.value = await api('/api/v1/wf/instances/' + row.id).catch(() => null)
+async function viewDetail(row: InstanceRow) {
+  detail.value = await api<InstanceDetail>('/api/v1/wf/instances/' + row.id).catch(() => null)
   if (!detail.value) { ElMessage.error('无权查看详情'); return }
   detailDlg.value = true
 }
 
-const fmtTime = (r, c, v) => new Date(v).toLocaleString('zh-CN')
+const fmtTime = (_r: InstanceRow, _c: TableColumnCtx<InstanceRow>, v: string) => new Date(v).toLocaleString('zh-CN')
 
 async function loadTodo() {
   loading.value = true
   try {
     const [t, u] = await Promise.all([
-      api('/api/v1/wf/todo'),
-      api('/api/v1/identity/users').catch(() => []),
+      api<{ items: InstanceRow[] }>('/api/v1/wf/todo'),
+      api<UserRow[]>('/api/v1/identity/users').catch(() => [] as UserRow[]),
     ])
     todo.value = t.items || []
     users.value = u
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
@@ -224,19 +237,19 @@ async function submit() {
     Object.assign(form, { business_key: '', summary: '', approvers: [], mode: 'countersign', defKey: '' })
     pickedSteps.value = []
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     saving.value = false
   }
 }
 
-async function act(row, kind) {
+async function act(row: InstanceRow, kind: 'approve' | 'reject') {
   try {
     await api(`/api/v1/wf/instances/${row.id}/${kind}`, { method: 'POST', body: { comment: kind === 'approve' ? '同意' : '驳回' } })
     ElMessage.success(kind === 'approve' ? '已通过' : '已驳回')
     await loadTodo()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 

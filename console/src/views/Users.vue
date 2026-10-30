@@ -52,36 +52,47 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api, hasPerm } from '../api'
+import type { TableColumnCtx } from 'element-plus'
+import { api, perms, hasPerm, errMsg } from '../api'
+
+interface UserRow {
+  id: string
+  username: string
+  email: string
+  status: string
+  tenant_id: string
+  role_ids?: string[]
+  created_at: string
+}
+interface RoleRow { id: string; code: string; name: string; permissions: string[] }
 
 // 按钮级权限：与后端通配规则一致
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+const can = (p: string) => hasPerm(perms.get(), p)
 
-const rows = ref([])
-const roles = ref([])
+const rows = ref<UserRow[]>([])
+const roles = ref<RoleRow[]>([])
 const loading = ref(false)
 const dlg = ref(false)
 const saving = ref(false)
 const rolesDlg = ref(false)
-const pickedRoles = ref([])
-const editing = ref(null)
+const pickedRoles = ref<string[]>([])
+const editing = ref<UserRow | null>(null)
 const form = reactive({ username: '', password: '', email: '', tenant_id: '' })
 
-const fmtTime = (r, c, v) => new Date(v).toLocaleString('zh-CN')
+const fmtTime = (_r: UserRow, _c: TableColumnCtx<UserRow>, v: string) => new Date(v).toLocaleString('zh-CN')
 
 async function load() {
   loading.value = true
   try {
     ;[rows.value, roles.value] = await Promise.all([
-      api('/api/v1/identity/users'),
-      api('/api/v1/identity/roles').catch(() => []),
+      api<UserRow[]>('/api/v1/identity/users'),
+      api<RoleRow[]>('/api/v1/identity/roles').catch(() => [] as RoleRow[]),
     ])
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
@@ -96,19 +107,20 @@ async function save() {
     Object.assign(form, { username: '', password: '', email: '', tenant_id: '' })
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     saving.value = false
   }
 }
 
-function openRoles(row) {
+function openRoles(row: UserRow) {
   editing.value = row
   pickedRoles.value = [...(row.role_ids || [])]
   rolesDlg.value = true
 }
 
 async function saveRoles() {
+  if (!editing.value) return
   try {
     await api(`/api/v1/identity/users/${editing.value.id}/roles`, {
       method: 'PUT',
@@ -118,18 +130,18 @@ async function saveRoles() {
     rolesDlg.value = false
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function toggle(row) {
+async function toggle(row: UserRow) {
   const to = row.status === 'active' ? 'disabled' : 'active'
   try {
     await api(`/api/v1/identity/users/${row.id}/status`, { method: 'PATCH', body: { status: to } })
     ElMessage.success('已' + (to === 'active' ? '启用' : '停用'))
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 

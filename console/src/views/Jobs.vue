@@ -46,32 +46,34 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface JobRow { id: string; name: string; description: string; interval_sec: number; enabled: boolean; last_err?: string; last_result?: string }
+interface JobRun { start: string; err?: string; result?: string; duration: string }
 
-const rows = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const rows = ref<JobRow[]>([])
 const loading = ref(false)
 const runsDlg = ref(false)
-const viewing = ref(null)
-const runs = ref([])
+const viewing = ref<JobRow | null>(null)
+const runs = ref<JobRun[]>([])
 
 async function load() {
   loading.value = true
   try {
-    rows.value = await api('/api/v1/jobs')
+    rows.value = await api<JobRow[]>('/api/v1/jobs')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
 }
 
-async function toggle(row) {
+async function toggle(row: JobRow) {
   try {
     await api(`/api/v1/jobs/${row.id}/status`, {
       method: 'PATCH',
@@ -80,23 +82,23 @@ async function toggle(row) {
     ElMessage.success(row.enabled ? '已停用' : '已启用')
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function trigger(row) {
+async function trigger(row: JobRow) {
   try {
     await api(`/api/v1/jobs/${row.id}/trigger`, { method: 'POST' })
     ElMessage.success('已执行')
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function viewRuns(row) {
+async function viewRuns(row: JobRow) {
   viewing.value = row
-  runs.value = await api(`/api/v1/jobs/${row.id}/runs`).catch(() => [])
+  runs.value = await api<JobRun[]>(`/api/v1/jobs/${row.id}/runs`).catch(() => [])
   runsDlg.value = true
 }
 

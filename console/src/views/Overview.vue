@@ -45,21 +45,26 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { api } from '../api'
+import { api, type MeInfo } from '../api'
 
-const me = ref(null)
-const quota = ref(null)
-const verify = ref(null)
-const providers = ref(null)
-const modules = ref([])
+interface QuotaInfo { used: number; limit: number }
+interface VerifyInfo { ok: boolean; break_at?: string; total_events: number }
+interface ProvidersInfo { providers: string[]; default?: string }
+interface ModuleInfo { name: string; version: string; permissions?: string[] }
+
+const me = ref<MeInfo | null>(null)
+const quota = ref<QuotaInfo | null>(null)
+const verify = ref<VerifyInfo | null>(null)
+const providers = ref<ProvidersInfo | null>(null)
+const modules = ref<ModuleInfo[]>([])
 
 onMounted(async () => {
-  me.value = await api('/api/v1/identity/me').catch(() => null)
-  quota.value = await api('/api/v1/ai/quota/platform').catch(() => null)
-  verify.value = await api('/api/v1/audit/verify').catch(() => null)
-  providers.value = await api('/api/v1/ai/providers').catch(() => null)
-  modules.value = await api('/api/v1/platform/modules').catch(() => [])
+  me.value = await api<MeInfo>('/api/v1/identity/me').catch(() => null)
+  quota.value = await api<QuotaInfo>('/api/v1/ai/quota/platform').catch(() => null)
+  verify.value = await api<VerifyInfo>('/api/v1/audit/verify').catch(() => null)
+  providers.value = await api<ProvidersInfo>('/api/v1/ai/providers').catch(() => null)
+  modules.value = await api<ModuleInfo[]>('/api/v1/platform/modules').catch(() => [])
 })
 </script>

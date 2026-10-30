@@ -33,32 +33,33 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface ConfigRow { id: string; key: string; name: string; value: string; updated_at: string }
 
-const rows = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const rows = ref<ConfigRow[]>([])
 const loading = ref(false)
 const dlg = ref(false)
-const editing = ref(null)
+const editing = ref<ConfigRow | null>(null)
 const form = reactive({ key: '', name: '', value: '' })
 
 async function load() {
   loading.value = true
   try {
-    rows.value = await api('/api/v1/configs')
+    rows.value = await api<ConfigRow[]>('/api/v1/configs')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
 }
 
-function openEdit(row) {
+function openEdit(row: ConfigRow) {
   editing.value = row
   Object.assign(form, { key: row.key, name: row.name, value: row.value })
   dlg.value = true
@@ -78,17 +79,17 @@ async function save() {
     Object.assign(form, { key: '', name: '', value: '' })
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function del(row) {
+async function del(row: ConfigRow) {
   try {
     await ElMessageBox.confirm(`删除参数「${row.key}」？`, '确认', { type: 'warning' })
     await api(`/api/v1/configs/${row.id}`, { method: 'DELETE' })
     await load()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message)
+    if (e !== 'cancel') ElMessage.error(errMsg(e))
   }
 }
 

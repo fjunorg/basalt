@@ -57,30 +57,35 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface WfStep { name: string; approvers: string[]; mode: 'countersign' | 'or-sign' }
+interface WfDefRow { id: string; key: string; name: string; category: string; steps: WfStep[]; status: string }
+interface UserRow { id: string; username: string }
 
-const rows = ref([])
-const users = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const rows = ref<WfDefRow[]>([])
+const users = ref<UserRow[]>([])
 const loading = ref(false)
 const dlg = ref(false)
-const editing = ref(null)
-const form = reactive({ key: '', name: '', category: '', steps: [] })
+const editing = ref<WfDefRow | null>(null)
+const form = reactive<{ key: string; name: string; category: string; steps: WfStep[] }>({
+  key: '', name: '', category: '', steps: [],
+})
 
 async function load() {
   loading.value = true
   try {
     ;[rows.value, users.value] = await Promise.all([
-      api('/api/v1/wf/definitions'),
-      api('/api/v1/identity/users').catch(() => []),
+      api<WfDefRow[]>('/api/v1/wf/definitions'),
+      api<UserRow[]>('/api/v1/identity/users').catch(() => [] as UserRow[]),
     ])
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
@@ -92,9 +97,9 @@ function openCreate() {
   dlg.value = true
 }
 
-function openEdit(row) {
+function openEdit(row: WfDefRow) {
   editing.value = row
-  Object.assign(form, { key: row.key, name: row.name, category: row.category, steps: JSON.parse(JSON.stringify(row.steps)) })
+  Object.assign(form, { key: row.key, name: row.name, category: row.category, steps: JSON.parse(JSON.stringify(row.steps)) as WfStep[] })
   dlg.value = true
 }
 
@@ -122,11 +127,11 @@ async function save() {
     dlg.value = false
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function toggle(row) {
+async function toggle(row: WfDefRow) {
   try {
     await api(`/api/v1/wf/definitions/${row.id}`, {
       method: 'PATCH',
@@ -134,7 +139,7 @@ async function toggle(row) {
     })
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 

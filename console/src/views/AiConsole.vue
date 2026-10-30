@@ -55,29 +55,31 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api, chatStream, hasPerm } from '../api'
+import { api, chatStream, perms, hasPerm, errMsg, type ChatMessage } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface QuotaInfo { used: number; limit: number }
+interface TenantRow { id: string; code: string; name: string }
 
-const messages = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const messages = ref<ChatMessage[]>([])
 const input = ref('')
 const streaming = ref(false)
 const model = ref('')
-const providers = ref([])
-const quota = ref(null)
-const box = ref(null)
-const tenants = ref([])
+const providers = ref<string[]>([])
+const quota = ref<QuotaInfo | null>(null)
+const box = ref<HTMLElement | null>(null)
+const tenants = ref<TenantRow[]>([])
 const quotaTenant = ref('')
-const tenantQuota = ref(null)
+const tenantQuota = ref<QuotaInfo | null>(null)
 const newLimit = ref(1000000)
 
 async function loadTenantQuota() {
   if (!quotaTenant.value) return
-  tenantQuota.value = await api('/api/v1/ai/quota/' + quotaTenant.value).catch(() => null)
+  tenantQuota.value = await api<QuotaInfo>('/api/v1/ai/quota/' + quotaTenant.value).catch(() => null)
   if (tenantQuota.value && tenantQuota.value.limit >= 0) newLimit.value = tenantQuota.value.limit
 }
 
@@ -90,7 +92,7 @@ async function saveQuota() {
     ElMessage.success('已保存（' + (newLimit.value < 0 ? '不限量' : newLimit.value) + '）')
     await loadTenantQuota()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
@@ -100,9 +102,9 @@ const pct = computed(() => {
 })
 
 async function loadMeta() {
-  providers.value = (await api('/api/v1/ai/providers').catch(() => ({ providers: [] }))).providers || []
+  providers.value = (await api<{ providers: string[] }>('/api/v1/ai/providers').catch(() => ({ providers: [] }))).providers || []
   if (providers.value.length) model.value = model.value || providers.value[0]
-  quota.value = await api('/api/v1/ai/quota/platform').catch(() => null)
+  quota.value = await api<QuotaInfo>('/api/v1/ai/quota/platform').catch(() => null)
 }
 
 async function send() {
@@ -110,7 +112,7 @@ async function send() {
   if (!text || streaming.value) return
   input.value = ''
   messages.value.push({ role: 'user', content: text })
-  const reply = { role: 'assistant', content: '' }
+  const reply: ChatMessage = { role: 'assistant', content: '' }
   messages.value.push(reply)
   streaming.value = true
   try {
@@ -122,9 +124,9 @@ async function send() {
         box.value?.scrollTo({ top: box.value.scrollHeight })
       },
     })
-    quota.value = await api('/api/v1/ai/quota/platform').catch(() => quota.value)
+    quota.value = await api<QuotaInfo>('/api/v1/ai/quota/platform').catch(() => quota.value)
   } catch (e) {
-    reply.content = reply.content || ('⚠ ' + e.message)
+    reply.content = reply.content || ('⚠ ' + errMsg(e))
   } finally {
     streaming.value = false
   }
@@ -132,7 +134,7 @@ async function send() {
 
 onMounted(async () => {
   await loadMeta()
-  tenants.value = await api('/api/v1/tenant/tenants').catch(() => [])
+  tenants.value = await api<TenantRow[]>('/api/v1/tenant/tenants').catch(() => [])
 })
 </script>
 

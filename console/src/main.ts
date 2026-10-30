@@ -1,10 +1,10 @@
 import { createApp } from 'vue'
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import App from './App.vue'
-import { api, token, perms, hasPerm } from './api'
+import { api, token, perms, hasPerm, type MeInfo } from './api'
 
 // 页面级权限映射：meta.perms 列出进入该页面所需权限点（满足任一即可），
 // 取值依据后端各模块路由挂载（pkg/modules/** 的 Require 中间件）：
@@ -21,7 +21,7 @@ import { api, token, perms, hasPerm } from './api'
 // - 定时任务 GET /jobs → job:list
 // 工作台五页（审批/财务/公文/合同/AI）主数据面向个人（auth-only，mine/todo 流），
 // 不设页面级权限点；其中的管理型操作由页面内按钮级 can() 控制。
-const routes = [
+const routes: RouteRecordRaw[] = [
   { path: '/login', component: () => import('./views/Login.vue') },
   {
     path: '/',
@@ -62,7 +62,7 @@ router.beforeEach(async (to) => {
   if (p === null) {
     // 旧会话遗留 token 且无权限快照：拉取一次 /me 自愈（此后守卫与菜单共用同一快照）
     try {
-      const me = await api('/api/v1/identity/me')
+      const me = await api<MeInfo>('/api/v1/identity/me')
       perms.set(me.permissions || [])
       p = perms.get() || []
     } catch {

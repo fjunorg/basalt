@@ -28,18 +28,30 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { api } from '../api'
+import { api, errMsg } from '../api'
 
-const events = ref([])
-const verify = ref(null)
+interface AuditEvent {
+  time: string
+  module: string
+  event: string
+  actor_id?: string
+  resource?: string
+  detail?: string
+  hash?: string
+}
+interface VerifyInfo { ok: boolean; break_at?: string; total_events: number }
+interface EventsResp { events: AuditEvent[] }
+
+const events = ref<AuditEvent[]>([])
+const verify = ref<VerifyInfo | null>(null)
 const loading = ref(false)
 const module = ref('')
 const modules = ['identity', 'tenant', 'workflow', 'ai-gateway', 'audit']
 
-const detailOf = (row) => {
+const detailOf = (row: AuditEvent) => {
   try {
     return row.detail ? JSON.stringify(JSON.parse(row.detail)) : ''
   } catch {
@@ -52,13 +64,13 @@ async function load() {
   try {
     const q = module.value ? `?module=${module.value}&limit=100` : '?limit=100'
     const [ev, vf] = await Promise.all([
-      api('/api/v1/audit/events' + q),
-      api('/api/v1/audit/verify'),
+      api<EventsResp>('/api/v1/audit/events' + q),
+      api<VerifyInfo>('/api/v1/audit/verify'),
     ])
     events.value = ev.events || []
     verify.value = vf
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }

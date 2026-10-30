@@ -57,34 +57,35 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { api, hasPerm } from '../api'
+import { api, perms, hasPerm, errMsg } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface NoticeRow { id: string; title: string; content: string; type: string; status: string; created_at: string }
 
-const rows = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const rows = ref<NoticeRow[]>([])
 const loading = ref(false)
 const dlg = ref(false)
 const viewDlg = ref(false)
-const viewing = ref(null)
+const viewing = ref<NoticeRow | null>(null)
 const scope = ref('all')
 const form = reactive({ title: '', content: '', type: 'notice' })
 
 async function load() {
   loading.value = true
   try {
-    rows.value = await api(scope.value === 'published' ? '/api/v1/notices/published' : '/api/v1/notices')
+    rows.value = await api<NoticeRow[]>(scope.value === 'published' ? '/api/v1/notices/published' : '/api/v1/notices')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
 }
 
-function view(row) {
+function view(row: NoticeRow) {
   viewing.value = row
   viewDlg.value = true
 }
@@ -98,37 +99,37 @@ async function save() {
     Object.assign(form, { title: '', content: '', type: 'notice' })
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function publish(row) {
+async function publish(row: NoticeRow) {
   try {
     await api(`/api/v1/notices/${row.id}/publish`, { method: 'POST' })
     ElMessage.success('已发布')
     await load()
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   }
 }
 
-async function revoke(row) {
+async function revoke(row: NoticeRow) {
   try {
     await ElMessageBox.confirm(`撤回「${row.title}」？`, '确认', { type: 'warning' })
     await api(`/api/v1/notices/${row.id}/revoke`, { method: 'POST' })
     await load()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message)
+    if (e !== 'cancel') ElMessage.error(errMsg(e))
   }
 }
 
-async function del(row) {
+async function del(row: NoticeRow) {
   try {
     await ElMessageBox.confirm(`删除「${row.title}」？`, '确认', { type: 'warning' })
     await api(`/api/v1/notices/${row.id}`, { method: 'DELETE' })
     await load()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message)
+    if (e !== 'cancel') ElMessage.error(errMsg(e))
   }
 }
 

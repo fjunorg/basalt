@@ -26,31 +26,36 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { api, token, hasPerm } from '../api'
+import { api, token, perms, hasPerm, errMsg, type Envelope } from '../api'
 
-const perms = JSON.parse(localStorage.getItem('basalt_perms') || '[]')
-const can = (p) => hasPerm(perms, p)
+interface FileRow { id: string; name: string; size: number; content_type: string; created_at: string }
 
-const rows = ref([])
+const can = (p: string) => hasPerm(perms.get(), p)
+
+const rows = ref<FileRow[]>([])
 const loading = ref(false)
 
-const fmtSize = (n) => n > 1 << 20 ? (n / (1 << 20)).toFixed(1) + ' MB' : (n / 1024).toFixed(1) + ' KB'
+const fmtSize = (n: number) => n > 1 << 20 ? (n / (1 << 20)).toFixed(1) + ' MB' : (n / 1024).toFixed(1) + ' KB'
 
 async function load() {
   loading.value = true
   try {
-    rows.value = await api('/api/v1/files')
+    rows.value = await api<FileRow[]>('/api/v1/files')
   } catch (e) {
-    ElMessage.error(e.message)
+    ElMessage.error(errMsg(e))
   } finally {
     loading.value = false
   }
 }
 
-async function upload({ file, onSuccess, onError }) {
+async function upload({ file, onSuccess, onError }: {
+  file: File
+  onSuccess?: (response: unknown) => void
+  onError?: (err: Error) => void
+}) {
   const fd = new FormData()
   fd.append('file', file)
   try {
@@ -59,20 +64,18 @@ async function upload({ file, onSuccess, onError }) {
       headers: { Authorization: 'Bearer ' + token.get() },
       body: fd,
     })
-    const env = await res.json()
+    const env = (await res.json()) as Envelope
     if (!res.ok || env.code !== 0) throw new Error(env.message || '上传失败')
     ElMessage.success('已上传')
     await load()
     onSuccess?.(env)
   } catch (e) {
-    ElMessage.error(e.message)
-    onError?.(e)
+    ElMessage.error(errMsg(e))
+    onError?.(e instanceof Error ? e : new Error(String(e)))
   }
 }
 
-function download(row) {
-  const a = document.createElement('a')
-  a.href = `/api/v1/files/${row.id}/download?token=${encodeURIComponent(token.get())}`
+function download(row: FileRow) {
   // 统一走 fetch 以携带 Authorization
   fetch(`/api/v1/files/${row.id}/download`, { headers: { Authorization: 'Bearer ' + token.get() } })
     .then((r) => r.blob())
@@ -86,13 +89,13 @@ function download(row) {
     })
 }
 
-async function del(row) {
+async function del(row: FileRow) {
   try {
     await ElMessageBox.confirm(`删除「${row.name}」？`, '确认', { type: 'warning' })
     await api(`/api/v1/files/${row.id}`, { method: 'DELETE' })
     await load()
   } catch (e) {
-    if (e !== 'cancel') ElMessage.error(e.message)
+    if (e !== 'cancel') ElMessage.error(errMsg(e))
   }
 }
 
