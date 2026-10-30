@@ -57,6 +57,7 @@ func OpenDB(db *gorm.DB) (*Stores, error) {
 		&sysconfig.Item{},
 		&notice.Notice{},
 		&file.Meta{},
+		&job.Job{}, &job.RunRecord{},
 		&finance.Expense{}, &finance.Invoice{}, &finance.Budget{}, &finance.Payment{},
 		&document.Doc{},
 		&contract.Contract{},

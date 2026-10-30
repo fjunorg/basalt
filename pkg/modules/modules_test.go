@@ -287,9 +287,12 @@ func TestJobManagerTrigger(t *testing.T) {
 		t.Fatalf("trigger: %d %s", rec.Code, rec.Body.String())
 	}
 	rec, data = do(t, h, http.MethodGet, "/api/v1/jobs/audit.stats/runs", tok, nil)
-	var runs []job.RunRecord
+	var runs struct {
+		Total int             `json:"total"`
+		Items []job.RunRecord `json:"items"`
+	}
 	_ = json.Unmarshal(data, &runs)
-	if len(runs) == 0 || runs[0].Result == "" {
+	if runs.Total == 0 || len(runs.Items) == 0 || runs.Items[0].Result == "" {
 		t.Fatalf("runs = %+v", runs)
 	}
 

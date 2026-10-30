@@ -191,11 +191,14 @@ func TestJobModuleAPI(t *testing.T) {
 		t.Fatalf("run = %+v", run)
 	}
 
-	// 运行记录列表
+	// 运行记录列表（分页包装：{total, offset, items}）
 	_, data = do(t, h, http.MethodGet, "/api/v1/jobs/audit.stats/runs", tok, nil)
-	var runs []job.RunRecord
+	var runs struct {
+		Total int             `json:"total"`
+		Items []job.RunRecord `json:"items"`
+	}
 	_ = json.Unmarshal(data, &runs)
-	if len(runs) != 1 {
+	if runs.Total != 1 || len(runs.Items) != 1 {
 		t.Fatalf("runs = %+v", runs)
 	}
 
