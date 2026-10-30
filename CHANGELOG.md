@@ -4,6 +4,42 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-30
+
+Agent 编排落地、租户 dedicated-db 数据库隔离实装（示范接入）与 Admin Console Agent 控制台。
+
+### 新增
+
+- **agent（agent v0.1）**：L2 轻量 Agent 编排模块——Agent 定义 → 运行 →
+  工具调用循环 → SSE 运行事件。自研轻量循环（系统提示 → LLM → 工具调用
+  → 结果回填 → 再 LLM → 终答），不引入 Eino（信创依赖树最小化约束），
+  ToolRegistry 接口缝预留生态对接位；LLM 调用一律经 ai-gateway 统一层
+  （配额/内容安全审核/记账/审计全链路），ai-safety 命中落 safety_rejected
+  终态并经 SSE safety.rejected 事件下发；内置工具 RagSearchTool（RAG
+  检索联动，HTTP 工具等后续扩展）；GORM 持久化（定义与运行记录）+ 独立单测。
+- **Admin Console Agent 控制台**：Agent 定义管理（CRUD 覆盖全部定义字段，
+  工具多选自 /tools 注册表，写操作按钮级 agent:manage 权限点）与 SSE
+  运行页（七类运行事件：run.started / tool.call / tool.result 成对可观测 /
+  llm.delta 按序拼接 / run.completed / run.failed / safety.rejected），
+  按 agent-api-contract 契约 v1 对接。
+- **租户 dedicated-db 数据库隔离（部分实装）**：TenantRouter + 路由型
+  store 机制落地——租户记录仅存库引用名（DBRef），DSN 凭据经
+  BASALT_TENANT_DSN_<REF> 环境变量注入、不落库；租户库首访懒初始化
+  （复用 OpenDB 全量 AutoMigrate，建库即建表）；DSN 未配置 / 连接或迁移
+  失败明确报错，绝不静默回退主库（防隔离破坏）；重启后 Router 缓存冷启动、
+  按需重连。**当前端到端接入范围为 dict 模块**（BASALT_TENANT_ROUTING=on
+  开启，默认关闭维持现状），其余模块接入模式与运维手册见
+  docs/tenant-isolation.md；shared-db 模式经评估暂不实装（评估结论见
+  该文档 §4）。tenant 模块新增库引用字段与 API 校验，identity 导出
+  上下文注入接口。
+- **serve 装配扩至 17 模块**：agent 双分支装配（sqlite GORM / memory
+  降级）+ 工具注册表与 gateway 注入。
+
+### 变更
+
+- .env.example 补录 BASALT_AI_EMBED_MODEL（v1.2.0 rag 实读变量，共 16 项）。
+- 二进制默认版本基线 bump 至 1.2.0（随发布 ldflags 覆盖）。
+
 ## [1.2.0] - 2026-10-30
 
 AI 基础设施双模块（内容安全、RAG）落地，Admin Console 前端债（TS 迁移、按需导入）清偿。

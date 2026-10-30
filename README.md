@@ -5,7 +5,7 @@
 
 > **命名说明**：仓库所在目录名为 `AiGoAdmin`（历史工作代号）；项目正式名称为 **Basalt（玄武）**，Go module `github.com/basalt-go/basalt`——文档与发布物统一以 Basalt 为准。
 
-![Status](https://img.shields.io/badge/release-v1.2.0-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Go](https://img.shields.io/badge/go-1.26%2B-00ADD8) ![Tests](https://img.shields.io/badge/tests-race--enabled-green)
+![Status](https://img.shields.io/badge/release-v1.3.0-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Go](https://img.shields.io/badge/go-1.26%2B-00ADD8) ![Tests](https://img.shields.io/badge/tests-race--enabled-green)
 
 ## 已交付模块（API-first，单体形态）
 
@@ -13,7 +13,7 @@
 |----|------|------|------|
 | L0 | kernel | 模块系统（依赖拓扑/生命周期）、gin Router 抽象、配置、slog、OTel 可观测、**国密 SM3 Provider**（GB/T 32905 向量验证）、CLI 脚手架 | ✅ |
 | L1 | identity | 用户/角色 RBAC、bcrypt、JWT、权限点中间件（通配）、幂等引导管理员、prod 安全守卫 | v0.3 |
-| L1 | tenant | 租户 CRUD、租户上下文实时解析、行级隔离 | v0.2 |
+| L1 | tenant | 租户 CRUD、租户上下文实时解析、行级隔离；v1.3.0 起 dedicated-db 库级隔离路由实装（示范接入 dict 模块，见 [docs/tenant-isolation.md](docs/tenant-isolation.md)） | v0.2 |
 | L1 | audit | **防篡改审计链**（链式哈希、篡改定位、GORM 持久化重启续链、SM3 可选） | v0.2 |
 | L1 | workflow | 轻量审批流（会签/或签/撤回、待办、守卫；实例与定义 GORM 持久化、重启恢复） | v0.2 |
 | L1 | org | 组织架构（部门树 + 岗位） | v0.1 |
@@ -28,12 +28,13 @@
 | L2 | ai-gateway | **OpenAI 兼容模型网关** + **SSE 流式**（include_usage 记账）+ 租户**月度账期**配额（持久化原子记账）+ 调用审计；v1.2.0 起集成内容安全审核 | v0.2 |
 | L2 | ai-safety | **AI 内容安全**（敏感词库、租户可配策略、调用链审核：reject/replace/mark，默认从严回落） | v0.1 |
 | L2 | rag | **知识库与检索增强**（库/文档/切片/向量化/相似检索；OpenAI 兼容 embeddings，sqlite blob 向量起步，VectorSearcher 接口预留专用向量库） | v0.1 |
-| — | stores | GORM 持久化（SQLite 无 CGO，sqlite 装配下覆盖全部 16 个模块；openGauss-postgres 分支占位，达梦/OceanBase 经 OpenDB 注入） | v0.1 |
-| L3 | console | Admin Console（Vue3 + TypeScript + Element Plus 按需导入，登录/概览/RBAC/审批/审计链/AI 控制台 + 业务模块管理页，菜单与路由按权限点显隐，go:embed 单二进制） | v0.1 |
+| L2 | agent | **轻量 Agent 编排**（定义/运行/工具调用循环/SSE 运行事件；LLM 经 ai-gateway 全链路，内置 RAG 检索工具；自研循环不引 Eino，ToolRegistry 预留生态对接） | v0.1 |
+| — | stores | GORM 持久化（SQLite 无 CGO，sqlite 装配下覆盖全部 17 个模块；openGauss-postgres 分支占位，达梦/OceanBase 经 OpenDB 注入） | v0.1 |
+| L3 | console | Admin Console（Vue3 + TypeScript + Element Plus 按需导入，登录/概览/RBAC/审批/审计链/AI 对话/Agent 定义与运行 + 业务模块管理页，菜单与路由按权限点显隐，go:embed 单二进制） | v0.1 |
 
 > 平台业务模块（L1）与 AI 基础设施模块（L2）均具备 GORM 持久化与内存零依赖两条装配路径（`BASALT_STORAGE=sqlite|memory`）；版本明细见 [CHANGELOG](CHANGELOG.md)。
 
-> 1.1 路线：gRPC/服务治理、Agent（Eino）、SM2 签名、shared-db/dedicated-db 隔离（Admin Console 已随 v1.1.0 交付；RAG 与内容安全已随 v1.2.0 交付）。详见 [CHANGELOG](CHANGELOG.md)。
+> 1.1 路线：gRPC/服务治理、SM2 签名（Admin Console 已随 v1.1.0 交付；RAG 与内容安全已随 v1.2.0 交付；Agent 编排与 dedicated-db 隔离已随 v1.3.0 交付）；shared-db 隔离经评估暂不实装（见 [docs/tenant-isolation.md](docs/tenant-isolation.md) §4）。详见 [CHANGELOG](CHANGELOG.md)。
 
 ## 定位
 
@@ -80,7 +81,7 @@ cd console && npm install && npm run build
 
 ```
 L3  前端控制台（Vue3 + TS + Element Plus 按需导入，go:embed 嵌入）  console/
-L2  AI 基础设施：模型网关 · 配额 · 审计 · 内容安全 · RAG（已交付）· Agent（规划）  pkg/ai/ + pkg/modules/
+L2  AI 基础设施：模型网关 · 配额 · 审计 · 内容安全 · RAG · Agent（已交付）  pkg/ai/ + pkg/modules/
 L1  平台业务：身份 · 多租户 · 工作流 · 审计 · 业务模块群（组织/字典/参数/
     通知/文件/任务/财务/公文/合同）（可插拔模块）           pkg/modules/
 L0  内核：HTTP · 配置 · 日志 · 服务治理 · 国密 · CLI        pkg/kernel/
@@ -118,7 +119,7 @@ func (*Hello) Stop(context.Context) error  { return nil }
 |--------|------|------|
 | M1 | 0–3 月 | 内核完善（gin/cobra/otel/国密）+ 身份/多租户实装 + CLI 脚手架 |
 | M2 | 3–6 月 | 轻量审批工作流 + 防篡改审计 + AI 网关与配额 |
-| M3 | 6–12 月 | Agent 编排（集成 Eino）（RAG 与内容安全已随 v1.2.0 提前交付；Admin Console 已随 v1.1.0 交付） |
+| M3 | 6–12 月 | 已全部提前交付：Admin Console（v1.1.0）、RAG 与内容安全（v1.2.0）、Agent 编排（v1.3.0，自研轻量实现而非集成 Eino） |
 
 ## 参与
 
