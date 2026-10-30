@@ -264,6 +264,7 @@ func (m *Module) createDept(w http.ResponseWriter, r *http.Request) {
 		Sort     int    `json:"sort"`
 	}
 	if !decode(w, r, &req) || req.Name == "" {
+		web.Err(w, http.StatusBadRequest, "name is required")
 		return
 	}
 	if req.ParentID != "" {
