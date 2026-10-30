@@ -39,9 +39,9 @@ const Version = "0.1.0"
 
 // 权限点。
 const (
-	PermKBManage  = "rag:kb:manage"   // 知识库建/改/删
-	PermDocManage = "rag:doc:manage"  // 文档登记/切片/向量化/删除
-	PermRead      = "rag:read"        // 列表/详情/检索
+	PermKBManage  = "rag:kb:manage"  // 知识库建/改/删
+	PermDocManage = "rag:doc:manage" // 文档登记/切片/向量化/删除
+	PermRead      = "rag:read"       // 列表/详情/检索
 )
 
 // 管道状态。
@@ -52,16 +52,16 @@ const (
 )
 
 var (
-	ErrNotFound      = errors.New("rag: not found")
-	ErrNoText        = errors.New("rag: text or file_id required")
-	ErrBadStrategy   = errors.New("rag: invalid chunk strategy")
-	ErrNotChunked    = errors.New("rag: chunk the document before embedding")
-	ErrAlreadyDone   = errors.New("rag: document already embedded")
-	ErrFileUnavail   = errors.New("rag: file resolver unavailable")
-	ErrFileNotFound  = errors.New("rag: source file not found")
-	ErrEmptyKB       = errors.New("rag: knowledge base name required")
-	ErrBadTopK       = errors.New("rag: top_k must be 1..100")
-	ErrEmptyQuery    = errors.New("rag: query required")
+	ErrNotFound     = errors.New("rag: not found")
+	ErrNoText       = errors.New("rag: text or file_id required")
+	ErrBadStrategy  = errors.New("rag: invalid chunk strategy")
+	ErrNotChunked   = errors.New("rag: chunk the document before embedding")
+	ErrAlreadyDone  = errors.New("rag: document already embedded")
+	ErrFileUnavail  = errors.New("rag: file resolver unavailable")
+	ErrFileNotFound = errors.New("rag: source file not found")
+	ErrEmptyKB      = errors.New("rag: knowledge base name required")
+	ErrBadTopK      = errors.New("rag: top_k must be 1..100")
+	ErrEmptyQuery   = errors.New("rag: query required")
 )
 
 // ---------- 向量序列化 ----------
@@ -101,8 +101,8 @@ func (Vector) GormDataType() string { return "blob" }
 // ---------- 切片策略 ----------
 
 const (
-	ChunkByLength    = "length"     // 按长度滑窗（rune 计）
-	ChunkBySeparator = "separator"  // 按分隔符切（超长段回退按长度）
+	ChunkByLength    = "length"    // 按长度滑窗（rune 计）
+	ChunkBySeparator = "separator" // 按分隔符切（超长段回退按长度）
 )
 
 // 默认切片策略：500 字/块，重叠 50，兼顾语义连贯与召回粒度。
@@ -222,19 +222,19 @@ type KnowledgeBase struct {
 // sourceType=file 时 Content 保存登记期抽取的文本（登记即抽取，
 // 检索管道不再依赖文件在位）。
 type Document struct {
-	ID          string    `json:"id" gorm:"primaryKey;size:40"`
-	KBID        string    `json:"kb_id" gorm:"size:40;index"`
-	Name        string    `json:"name" gorm:"size:255"`
-	SourceType  string    `json:"source_type" gorm:"size:16"` // text | file
-	FileID      string    `json:"file_id,omitempty" gorm:"size:40"`
-	Content     string    `json:"content,omitempty" gorm:"type:text"`
-	Status      string    `json:"status" gorm:"size:16;index"` // registered|chunked|embedded
-	ChunkCount  int       `json:"chunk_count"`
-	EmbedModel  string    `json:"embed_model,omitempty" gorm:"size:128"`
-	Dim         int       `json:"dim,omitempty"` // 向量维度（0 = 未向量化）
-	CreatorID   string    `json:"creator_id" gorm:"size:40;index"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID         string    `json:"id" gorm:"primaryKey;size:40"`
+	KBID       string    `json:"kb_id" gorm:"size:40;index"`
+	Name       string    `json:"name" gorm:"size:255"`
+	SourceType string    `json:"source_type" gorm:"size:16"` // text | file
+	FileID     string    `json:"file_id,omitempty" gorm:"size:40"`
+	Content    string    `json:"content,omitempty" gorm:"type:text"`
+	Status     string    `json:"status" gorm:"size:16;index"` // registered|chunked|embedded
+	ChunkCount int       `json:"chunk_count"`
+	EmbedModel string    `json:"embed_model,omitempty" gorm:"size:128"`
+	Dim        int       `json:"dim,omitempty"` // 向量维度（0 = 未向量化）
+	CreatorID  string    `json:"creator_id" gorm:"size:40;index"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // Chunk 是文档的一个切片。Embedding 为 nil 表示未向量化。
@@ -1066,6 +1066,29 @@ func (m *Module) Search(ctx context.Context, kbID string, query Vector, topK int
 	}
 	return m.searcher.Search(ctx, m.store, kbID, query, topK)
 }
+
+// SearchText 文本检索入口（内部向量化后走 Search）：供 agent 检索
+// 工具等模块内调用方使用——它们只持文本，不感知 embedding 客户端。
+// embedding 未配置时返回 ErrEmbedNotConfigured。
+func (m *Module) SearchText(ctx context.Context, kbID, query string, topK int) ([]Hit, error) {
+	if m.emb == nil {
+		return nil, ErrEmbedNotConfigured
+	}
+	if _, err := m.store.GetKB(ctx, kbID); err != nil {
+		return nil, err
+	}
+	qv, err := m.emb.Embed(ctx, []string{query})
+	if err != nil {
+		return nil, err
+	}
+	if len(qv) == 0 {
+		return nil, errors.New("rag: empty embedding for query")
+	}
+	return m.Search(ctx, kbID, Vector(qv[0]), topK)
+}
+
+// Embedder 暴露向量化客户端装配状态（agent 等调用方预检用）。
+func (m *Module) Embedder() EmbeddingClient { return m.emb }
 
 // ---------- 工具 ----------
 

@@ -17,18 +17,19 @@ import (
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 
-	"github.com/basalt-go/basalt/pkg/modules/audit"
+	"github.com/basalt-go/basalt/pkg/modules/agent"
 	"github.com/basalt-go/basalt/pkg/modules/aisafety"
-	"github.com/basalt-go/basalt/pkg/modules/rag"
+	"github.com/basalt-go/basalt/pkg/modules/audit"
 	"github.com/basalt-go/basalt/pkg/modules/contract"
 	"github.com/basalt-go/basalt/pkg/modules/dict"
 	"github.com/basalt-go/basalt/pkg/modules/document"
-	"github.com/basalt-go/basalt/pkg/modules/finance"
 	"github.com/basalt-go/basalt/pkg/modules/file"
+	"github.com/basalt-go/basalt/pkg/modules/finance"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 	"github.com/basalt-go/basalt/pkg/modules/job"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
 	"github.com/basalt-go/basalt/pkg/modules/org"
+	"github.com/basalt-go/basalt/pkg/modules/rag"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
 	"github.com/basalt-go/basalt/pkg/modules/tenant"
 	"github.com/basalt-go/basalt/pkg/modules/workflow"
@@ -60,6 +61,7 @@ func OpenDB(db *gorm.DB) (*Stores, error) {
 		&workflow.Instance{}, &workflow.Action{}, &workflow.Definition{},
 		&aisafety.Term{}, &aisafety.Policy{}, &aisafety.Settings{},
 		&rag.KnowledgeBase{}, &rag.Document{}, &rag.Chunk{},
+		&agent.Definition{}, &agent.Run{}, &agent.RunMessage{},
 	); err != nil {
 		return nil, err
 	}
@@ -88,6 +90,7 @@ func (s *Stores) WorkflowStore() workflow.Store       { return &WorkflowStore{db
 func (s *Stores) WorkflowDefStore() workflow.DefStore { return &WorkflowDefStore{db: s.DB} }
 func (s *Stores) AISafetyStore() aisafety.Store       { return &AISafetyStore{db: s.DB} }
 func (s *Stores) RagStore() rag.Store                 { return &RagStore{db: s.DB} }
+func (s *Stores) AgentStore() agent.Store             { return &AgentStore{db: s.DB} }
 
 // AuditChainStore 按传入哈希器构造持久化审计链（SM3/SHA-256 由调用方
 // 依 BASALT_CRYPTO_ALGO 决定）。

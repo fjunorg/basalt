@@ -15,8 +15,9 @@ import (
 	"github.com/basalt-go/basalt/pkg/kernel/config"
 	"github.com/basalt-go/basalt/pkg/kernel/crypto"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
-	"github.com/basalt-go/basalt/pkg/modules/audit"
+	"github.com/basalt-go/basalt/pkg/modules/agent"
 	"github.com/basalt-go/basalt/pkg/modules/aisafety"
+	"github.com/basalt-go/basalt/pkg/modules/audit"
 	"github.com/basalt-go/basalt/pkg/modules/contract"
 	"github.com/basalt-go/basalt/pkg/modules/dict"
 	"github.com/basalt-go/basalt/pkg/modules/document"
@@ -103,6 +104,10 @@ func newServeCmd() *cobra.Command {
 				return fmt.Errorf("rag embedding client: %w", embErr)
 			}
 
+			// agent 工具注册表（内置 rag.search；后续工具在此追加，
+			// 定义绑定时按注册名校验）。rag 工具在 ragM 构造后注入。
+			agentTools := agent.NewToolRegistry()
+
 			// 存储装配：memory（默认零依赖）或 sqlite（持久化：
 			// 全部模块落盘，重启延续）。postgres/openGauss 经
 			// gormstore.OpenDB 注入对应方言连接（驱动接线随信创
@@ -123,6 +128,7 @@ func newServeCmd() *cobra.Command {
 			var wfM *workflow.Module
 			var ragM *rag.Module
 			var safetyM *aisafety.Module
+			var agentM *agent.Module
 			switch cfg.Storage {
 			case "sqlite":
 				dsn := cfg.DBDSN
@@ -167,6 +173,7 @@ func newServeCmd() *cobra.Command {
 				ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
 				ragM = rag.NewWithStore(st.RagStore(), ragFiles, ragEmb)
 				safetyM = aisafety.NewWithStore(st.AISafetyStore())
+				agentM = agent.NewWithStore(st.AgentStore())
 			case "postgres", "opengauss":
 				// openGauss 走 postgres 协议方言；驱动（gorm.io/driver/
 				// postgres 或信创社区驱动）接线后在此 OpenDB 注入即可，
@@ -189,11 +196,18 @@ func newServeCmd() *cobra.Command {
 				ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
 				ragM = rag.New(ragFiles, ragEmb)
 				safetyM = aisafety.New()
+				agentM = agent.New()
 			}
 
 			// 内容安全审核器注入网关（两路径均保留审核能力：
 			// 持久化路径词库/策略跨重启延续，内存路径随进程）。
 			gw.SetInspector(safetyM.Inspector())
+
+			// agent 编排接线：LLM 一律经 gateway 统一层（配额/审核/
+			// 记账/审计），工具注册表挂 rag 检索工具（接口缝可扩展）。
+			agentTools.Register(&agent.RagSearchTool{RAG: ragM})
+			agentM.SetGateway(gw)
+			agentM.SetTools(agentTools)
 
 			// OpenAI 兼容提供方装配（私有化一等公民）：
 			// BASALT_AI_PROVIDER_URL/NAME/KEY，如 vLLM/Ollama/Qwen/GLM 端点。
@@ -204,7 +218,7 @@ func newServeCmd() *cobra.Command {
 				idm, tnt, adm,
 				orgM, dictM, sysM, notM,
 				fileM, jobM,
-				wfM, finM, docM, conM, gw, ragM, safetyM,
+				wfM, finM, docM, conM, gw, ragM, safetyM, agentM,
 			} {
 				if err := a.Registry().Register(m); err != nil {
 					return err
