@@ -12,14 +12,14 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/document"
 	"github.com/basalt-go/basalt/pkg/modules/file"
 	"github.com/basalt-go/basalt/pkg/modules/finance"
+	"github.com/basalt-go/basalt/pkg/modules/identity"
 	"github.com/basalt-go/basalt/pkg/modules/job"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
 	"github.com/basalt-go/basalt/pkg/modules/org"
 	"github.com/basalt-go/basalt/pkg/modules/rag"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
-	"github.com/basalt-go/basalt/pkg/modules/workflow"
-	"github.com/basalt-go/basalt/pkg/modules/identity"
 	"github.com/basalt-go/basalt/pkg/modules/tenant"
+	"github.com/basalt-go/basalt/pkg/modules/workflow"
 	"github.com/basalt-go/basalt/pkg/stores/gormstore"
 )
 

@@ -103,7 +103,7 @@ func (r *TenantRouter) Close() {
 }
 
 // tenantResolver 是路由型 store 的公共底座：按请求上下文解析目标库
-//（规则见 RoutedDictStore 类型注释）。
+// （规则见 RoutedDictStore 类型注释）。
 type tenantResolver struct {
 	master  *gorm.DB
 	users   identity.UserStore

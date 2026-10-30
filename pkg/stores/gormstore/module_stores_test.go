@@ -356,7 +356,7 @@ func TestJobManagerRestartRecovery(t *testing.T) {
 }
 
 // TestAllModulesWithGORMStores 模拟 serve.go sqlite 分支的全量装配
-//（identity/tenant/audit + 9 业务模块 + workflow），验证注入缝正确：
+// （identity/tenant/audit + 9 业务模块 + workflow），验证注入缝正确：
 // 登录后各模块关键 API 在 GORM store 上可用。
 func TestAllModulesWithGORMStores(t *testing.T) {
 	s := openMem(t)
