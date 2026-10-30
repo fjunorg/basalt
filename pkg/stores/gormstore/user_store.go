@@ -29,6 +29,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/org"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
 	"github.com/basalt-go/basalt/pkg/modules/tenant"
+	"github.com/basalt-go/basalt/pkg/modules/workflow"
 )
 
 // Open 打开 SQLite（含自动迁移）。dsn 如 ":memory:" 或文件路径。
@@ -48,12 +49,13 @@ func OpenDB(db *gorm.DB) (*Stores, error) {
 		&org.Dept{}, &org.Post{},
 		&dict.Type{}, &dict.Data{},
 		&sysconfig.Item{},
-		notice.Notice{},
+		&notice.Notice{},
 		&file.Meta{},
 		&job.Job{},
 		&finance.Expense{}, &finance.Invoice{}, &finance.Budget{}, &finance.Payment{},
 		&document.Doc{},
 		&contract.Contract{},
+		&workflow.Instance{}, &workflow.Action{}, &workflow.Definition{},
 	); err != nil {
 		return nil, err
 	}
@@ -78,6 +80,8 @@ func (s *Stores) JobStore() job.Store                 { return &JobStore{db: s.D
 func (s *Stores) FinanceStore() finance.Store         { return &FinanceStore{db: s.DB} }
 func (s *Stores) DocumentStore() document.Store       { return &DocumentStore{db: s.DB} }
 func (s *Stores) ContractStore() contract.Store       { return &ContractStore{db: s.DB} }
+func (s *Stores) WorkflowStore() workflow.Store       { return &WorkflowStore{db: s.DB} }
+func (s *Stores) WorkflowDefStore() workflow.DefStore { return &WorkflowDefStore{db: s.DB} }
 
 // AuditChainStore 按传入哈希器构造持久化审计链（SM3/SHA-256 由调用方
 // 依 BASALT_CRYPTO_ALGO 决定）。
