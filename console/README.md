@@ -1,6 +1,6 @@
 # /console — Admin Console（L3 前端控制台）
 
-**状态：v0.1 已交付（随 v1.1.0 发布；v1.2.0 完成 TypeScript 全量迁移与 Element Plus 按需导入；v1.3.0 新增 Agent 控制台）。** 构建产物 `dist/` 已入库并经 `go:embed` 嵌入二进制。
+**状态：v0.1 已交付（随 v1.1.0 发布；v1.2.0 完成 TypeScript 全量迁移与 Element Plus 按需导入；v1.3.0 新增 Agent 控制台；v1.4.0 租户页支持隔离模式与库引用配置）。** 构建产物 `dist/` 已入库并经 `go:embed` 嵌入二进制。
 
 ## 技术栈
 
@@ -22,7 +22,7 @@
 ## 页面清单（src/views，共 22 个）
 
 - **核心**：登录、概览（身份/用量/链校验）、布局、403 引导页（Forbidden）
-- **身份与租户**：用户、角色、租户
+- **身份与租户**：用户、角色、租户（隔离模式 shared-schema/dedicated-db 与 db_ref 库引用配置，dedicated 模式必填）
 - **审批与审计**：审批中心（发起/待办/通过/驳回）、工作流定义、审计链查看（模块过滤 + 完整性徽章）
 - **业务模块**：组织、字典、参数、通知、文件、任务、财务、公文、合同
 - **AI**：AI 控制台（SSE 流式对话 + 账期用量环图）、Agent 定义管理（CRUD，agent:manage 权限点）、Agent 运行页（SSE 七类运行事件，按 agent-api-contract 契约 v1）

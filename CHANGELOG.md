@@ -4,6 +4,50 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-30
+
+租户 dedicated-db 全量路由、国密 SM2 套件（Provider + 审计链尾签名）、等保基线自查命令与 Console 租户隔离管理。
+
+### 新增
+
+- **租户 dedicated-db 全量路由**：`BASALT_TENANT_ROUTING=on` 时全部 13 个
+  业务模块（org / dict / sysconfig / notice / file（元数据）/ job /
+  finance / document / contract / workflow（实例+定义）/ rag / agent）经
+  RoutedStores 请求级路由到租户专属库。接入边界（不路由，理由详见
+  docs/tenant-isolation.md §2.3）：平台级 identity/tenant/audit/quota
+  固定主库；aisafety Engine 为进程级快照，随按租户策略演进后接入；
+  file 文件本体在共享磁盘（物理隔离随对象存储接入）。隔离模式与
+  db_ref 仅创建时设置、PATCH 不支持在线切换（受控迁移流程）。
+- **国密 SM2 套件**：
+  - crypto SM2 签名 Provider（GB/T 32918.2 官方向量验证；emmansun/gmsm）：
+    `BASALT_CRYPTO_ALGO=sm2` 为国密套件（SM3 摘要 + SM2 签名），私钥
+    `BASALT_SM2_PRIVATE_KEY`、用户标识 `BASALT_SM2_UID`（默认国标值）
+  - **审计链尾 SM2 签名**：哈希链防单点篡改，链尾签名防持有全部数据的
+    攻击者整库重算伪造历史（私钥不入库，重算者无法对历史时点签名）；
+    SignHead / VerifyHeadSignatures / ListHeadSignatures，公钥随签名
+    持久化（验签不依赖当前私钥）；ChainSigner 接口缝预留 HSM；HTTP
+    端点 POST/GET `/api/v1/audit/chain/signatures`（+verify），新权限点
+    `audit:sign`（签名与读分离）；`BASALT_SM2_CHAIN_SIGN=on` 启用
+    （默认 off 行为不变），私钥未配置时进程内生成并 Warn 日志
+- **basalt secure --check（等保基线自查）**：六项检查——凭据默认值、
+  加密算法合规（含链签名开关）、上传目录可写与路径安全、审计链完整性
+  （复用 audit verify）、租户隔离开关、密钥明文暴露面；三态判定
+  PASS/WARN/FAIL，逐项输出与整改建议。**退出码约定：全部通过 0 /
+  存在 WARN 1 / 存在 FAIL 2**（CI 可直接消费）
+- **Console 租户隔离管理**：租户页支持隔离模式（shared-schema /
+  dedicated-db）与 db_ref 库引用配置（dedicated 模式必填，界面明示
+  凭据经环境变量注入）
+
+### 修复
+
+- agent：SSE 异常终态补发 run.failed 事件（契约 §4.1 对齐）
+
+### 变更
+
+- .env.example 增至 20 项：补录 SM2 三变量（PRIVATE_KEY/UID/CHAIN_SIGN）
+  与租户隔离变量（BASALT_TENANT_ROUTING、BASALT_TENANT_DSN_<REF> 约定）。
+- 二进制默认版本基线 bump 至 1.3.0（随发布 ldflags 覆盖）。
+
 ## [1.3.0] - 2026-10-30
 
 Agent 编排落地、租户 dedicated-db 数据库隔离实装（示范接入）与 Admin Console Agent 控制台。
