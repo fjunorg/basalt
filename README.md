@@ -5,7 +5,7 @@
 
 > **命名说明**：仓库所在目录名为 `AiGoAdmin`（历史工作代号）；项目正式名称为 **Basalt（玄武）**，Go module `github.com/basalt-go/basalt`——文档与发布物统一以 Basalt 为准。
 
-![Status](https://img.shields.io/badge/release-v1.0.0-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Go](https://img.shields.io/badge/go-1.26%2B-00ADD8) ![Tests](https://img.shields.io/badge/tests-race--enabled-green)
+![Status](https://img.shields.io/badge/release-v1.1.0-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Go](https://img.shields.io/badge/go-1.26%2B-00ADD8) ![Tests](https://img.shields.io/badge/tests-race--enabled-green)
 
 ## 已交付模块（API-first，单体形态）
 
@@ -15,23 +15,23 @@
 | L1 | identity | 用户/角色 RBAC、bcrypt、JWT、权限点中间件（通配）、幂等引导管理员、prod 安全守卫 | v0.3 |
 | L1 | tenant | 租户 CRUD、租户上下文实时解析、行级隔离 | v0.2 |
 | L1 | audit | **防篡改审计链**（链式哈希、篡改定位、GORM 持久化重启续链、SM3 可选） | v0.2 |
-| L1 | workflow | 轻量审批流（会签/或签/撤回、待办、守卫） | v0.1 |
-| L1 | org | 组织架构（部门树 + 岗位） | v0.1\* |
-| L1 | dict | 数据字典（字典类型 + 数据项，表单下拉/枚举统一维护） | v0.1\* |
-| L1 | sysconfig | 参数配置（运行期动态 KV，登录级只读） | v0.1\* |
-| L1 | notice | 通知公告（草稿/发布/全员已读视图） | v0.1\* |
-| L1 | file | 文件管理（本地上传/下载/列表，本地存储目录） | v0.1\* |
-| L1 | job | 轻量任务调度（间隔调度 + 启停/手动触发，运行态持久化、重启恢复） | v0.1\* |
-| L1 | finance | 财务业务（报销/付款/发票登记/部门预算，审批联动与预算预检） | v0.1\* |
-| L1 | document | 公文流转（收发文登记、密级缓急、审批联动、归档） | v0.1\* |
-| L1 | contract | 合同管理（登记/审批联动/生效完结 + 到期扫描督办） | v0.1\* |
+| L1 | workflow | 轻量审批流（会签/或签/撤回、待办、守卫；实例与定义 GORM 持久化、重启恢复） | v0.2 |
+| L1 | org | 组织架构（部门树 + 岗位） | v0.1 |
+| L1 | dict | 数据字典（字典类型 + 数据项，表单下拉/枚举统一维护） | v0.1 |
+| L1 | sysconfig | 参数配置（运行期动态 KV，登录级只读） | v0.1 |
+| L1 | notice | 通知公告（草稿/发布/全员已读视图） | v0.1 |
+| L1 | file | 文件管理（本地上传/下载/列表，本地存储目录） | v0.1 |
+| L1 | job | 轻量任务调度（间隔调度 + 启停/手动触发，运行态持久化、重启恢复） | v0.1 |
+| L1 | finance | 财务业务（报销/付款/发票登记/部门预算，审批联动与预算预检） | v0.1 |
+| L1 | document | 公文流转（收发文登记、密级缓急、审批联动、归档） | v0.1 |
+| L1 | contract | 合同管理（登记/审批联动/生效完结 + 到期扫描督办） | v0.1 |
 | L2 | ai-gateway | **OpenAI 兼容模型网关** + **SSE 流式**（include_usage 记账）+ 租户**月度账期**配额（持久化原子记账）+ 调用审计 | v0.2 |
-| — | stores | GORM 持久化（SQLite 无 CGO，覆盖 13 个模块；openGauss-postgres 分支占位，达梦/OceanBase 经 OpenDB 注入） | v0.1 |
-| L3 | console | Admin Console（Vue3 + Element Plus，登录/概览/RBAC/审批/审计链/AI 控制台 + 业务模块管理页，go:embed 单二进制） | v0.1\* |
+| — | stores | GORM 持久化（SQLite 无 CGO，sqlite 装配下覆盖全部 14 个模块；openGauss-postgres 分支占位，达梦/OceanBase 经 OpenDB 注入） | v0.1 |
+| L3 | console | Admin Console（Vue3 + Element Plus，登录/概览/RBAC/审批/审计链/AI 控制台 + 业务模块管理页，菜单与路由按权限点显隐，go:embed 单二进制） | v0.1 |
 
-> \* 标记项为 **Unreleased**（已合入主干，随下一版本发布）：9 个业务模块均具备 GORM 持久化与内存零依赖两条装配路径（workflow 审批流暂为内存态）；Console v0.1 详情见 [CHANGELOG](CHANGELOG.md)。
+> 平台业务模块（L1）均具备 GORM 持久化与内存零依赖两条装配路径（`BASALT_STORAGE=sqlite|memory`）；版本明细见 [CHANGELOG](CHANGELOG.md)。
 
-> 1.1 路线：gRPC/服务治理、RAG、Agent（Eino）、内容安全、SM2 签名、shared-db/dedicated-db 隔离（Admin Console 已提前交付 v0.1，见 CHANGELOG Unreleased）。详见 [CHANGELOG](CHANGELOG.md)。
+> 1.1 路线：gRPC/服务治理、RAG、Agent（Eino）、内容安全、SM2 签名、shared-db/dedicated-db 隔离（Admin Console 已随 v1.1.0 提前交付 v0.1）。详见 [CHANGELOG](CHANGELOG.md)。
 
 ## 定位
 
@@ -56,7 +56,7 @@ curl -X POST localhost:8080/api/v1/identity/login \
   -d '{"username":"admin","password":"Basalt@2026"}'
 
 # 生产形态推荐（持久化 + 国密审计链 + AI 接入）：
-BASALT_STORAGE=sqlite \                      # 落盘：身份/租户/审计/AI 配额 + 9 业务模块（审批流暂内存态）
+BASALT_STORAGE=sqlite \                      # 全部 14 模块落盘（含审批流实例与定义）
 BASALT_DB_DSN=/var/lib/basalt/basalt.db \
 BASALT_CRYPTO_ALGO=sm3 \                     # 审计链切换国密 SM3
 BASALT_AI_PROVIDER_URL=http://vllm:8000 \    # 任意 OpenAI 兼容端点

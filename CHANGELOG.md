@@ -4,14 +4,21 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-30
+
+Admin Console 交付、平台业务模块群（9 个）实装、全模块 GORM 持久化与工程资产兑现。
+
 ### 新增
 
 - **Admin Console v0.1**（Vue3 + Element Plus，构建产物 go:embed 单二进制）：
   登录、概览（身份/用量/链校验）、用户/角色/租户管理、审批中心（发起/待办/
   通过/驳回）、审计链查看（模块过滤 + 完整性徽章）、AI 控制台（SSE 流式
-  对话 + 账期用量环图）、工作流定义页，以及 9 个新业务模块的管理页
+  对话 + 账期用量环图）、工作流定义页，以及 9 个业务模块的管理页
   （组织/字典/参数/通知/文件/任务/财务/公文/合同）。hash 路由 + 相对
   资源路径，任意挂载路径可用。
+- **Console 菜单与路由权限显隐**：页面级权限映射（路由 `meta.perms`，
+  满足任一权限点即可进入），菜单显隐与路由守卫共用同一映射；
+  无权限访问落 403 引导页（Forbidden）。
 - Router.MountSPA：API 路由优先，非 /api 未命中回退 index.html。
 - **平台业务模块群 v0.1**（9 个，主流管理框架标配能力；均提供 GORM 持久化
   与内存零依赖两条装配路径；finance/document/contract 与 workflow 审批
@@ -27,28 +34,37 @@
     审批并预算预检，通过后回写单据占用预算，付款闭环）
   - document：公文流转（发文拟稿/收文登记、密级缓急标注、审批联动、归档）
   - contract：合同管理（登记/审批联动/生效完结 + 到期扫描入审计链供督办）
+- **workflow v0.2 持久化**：审批实例 Store + 流程定义 DefStore（GORM），
+  跨重启恢复经测试验证；状态机重构为导出纯函数（行为不变）。
 - **持久化与装配（stores/serve）**：
-  - gormstore.Stores 聚合工厂新增 9 模块 store 工厂，与既有 store 共用
-    OpenDB 迁移路径（达梦/openGauss 等 OpenDB 注入同源）
-  - serve sqlite 装配分支为 13 个模块注入 GORM store（identity/tenant/audit/
-    ai-gateway 配额 + 9 业务模块；workflow 审批流仍为内存态，持久化随后续
-    版本）；新增 postgres/opengauss 存储分支占位（驱动接线随后续版本，
-    当前显式报错并提示回退 sqlite/memory）
+  - gormstore.Stores 聚合工厂新增 9 模块 store 工厂 + workflow 双 store，
+    与既有 store 共用 OpenDB 迁移路径（达梦/openGauss 等 OpenDB 注入同源）
+  - serve sqlite 装配分支自此为**全部 14 个模块**注入 GORM store
+    （memory 分支保留零依赖降级路径）；新增 postgres/opengauss 存储分支
+    占位（驱动接线随后续版本，当前显式报错并提示回退 sqlite/memory）
   - store 语义、重启续存与全装配冒烟测试（gormstore/module_stores_test）
 - **工程与部署资产**：
   - CI（.github/workflows/ci.yml）：多 Go 版本测试矩阵（vet + test -race）、
-    golangci-lint（.golangci.yml 标准五件套，基线存量外科式豁免）、
+    golangci-lint（.golangci.yml 标准五件套；生产代码存量违规已清偿、
+    豁免清零，仅保留 Close 惯例与测试助手风格两类风格性豁免）、
     govulncheck、信创交叉编译矩阵（linux/amd64、arm64 鲲鹏、loong64 龙芯，
     产物以 artifact 发布）
   - Dockerfile：三阶段构建（console 前端 → go:embed Go 构建 → alpine 运行时），
     非 root 用户、/healthz 健康检查、/var/lib/basalt 持久卷
   - .env.example（15 项环境变量模板与用途说明）、docs/deploy.md 部署指南
     （单二进制与容器两条路径）、.gitignore 与 .dockerignore
+- **测试**：9 个业务模块补齐独立单测（9 文件 2128 行，handler 层契约 +
+  持久化重启恢复用例）；workflow 状态机语义与跨重启恢复测试
+
+### 修复
+
+- org：部门创建缺名称时返回 400 而非 200 空响应（补入参校验，
+  与 dict/sysconfig 校验风格对齐）
 
 ### 已知限制（Console）
 
 - JS 版（TS 迁移待办）；Element Plus 全量引入（主 chunk gzip ~350KB，
-  按需导入优化待办）；菜单未按权限点动态显隐。
+  按需导入优化待办）。
 
 ## [1.0.0] - 2026-10-28
 
