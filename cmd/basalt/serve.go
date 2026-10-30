@@ -25,6 +25,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/finance"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 	"github.com/basalt-go/basalt/pkg/modules/job"
+	"github.com/basalt-go/basalt/pkg/modules/menu"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
 	"github.com/basalt-go/basalt/pkg/modules/notify"
 	"github.com/basalt-go/basalt/pkg/modules/org"
@@ -131,6 +132,7 @@ func newServeCmd() *cobra.Command {
 			var safetyM *aisafety.Module
 			var agentM *agent.Module
 			var notifyM *notify.Module
+			var menuM *menu.Module
 			switch cfg.Storage {
 			case "sqlite":
 				dsn := cfg.DBDSN
@@ -218,6 +220,7 @@ func newServeCmd() *cobra.Command {
 				safetyM = aisafety.New()
 				agentM = agent.New()
 				notifyM = notify.New()
+				menuM = menu.New()
 			}
 
 			// 内容安全审核器注入网关（两路径均保留审核能力：
@@ -254,7 +257,7 @@ func newServeCmd() *cobra.Command {
 				idm, tnt, adm,
 				orgM, dictM, sysM, notM,
 				fileM, jobM,
-				wfM, finM, docM, conM, gw, ragM, safetyM, agentM, notifyM,
+				wfM, finM, docM, conM, gw, ragM, safetyM, agentM, notifyM, menuM,
 			} {
 				if err := a.Registry().Register(m); err != nil {
 					return err
