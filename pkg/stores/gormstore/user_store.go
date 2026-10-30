@@ -27,6 +27,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/finance"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 	"github.com/basalt-go/basalt/pkg/modules/job"
+	"github.com/basalt-go/basalt/pkg/modules/menu"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
 	"github.com/basalt-go/basalt/pkg/modules/notify"
 	"github.com/basalt-go/basalt/pkg/modules/org"
@@ -56,13 +57,13 @@ func OpenDB(db *gorm.DB) (*Stores, error) {
 		&sysconfig.Item{},
 		&notice.Notice{},
 		&file.Meta{},
-		&job.Job{},
 		&finance.Expense{}, &finance.Invoice{}, &finance.Budget{}, &finance.Payment{},
 		&document.Doc{},
 		&contract.Contract{},
 		&workflow.Instance{}, &workflow.Action{}, &workflow.Definition{},
 		&aisafety.Term{}, &aisafety.Policy{}, &aisafety.Settings{},
 		&notify.Template{}, &notify.SMTPConfig{}, &notify.SMSChannel{}, &notify.SendLog{}, &notify.InboxMsg{},
+		&menu.Menu{}, &menu.RoleMenu{},
 		&rag.KnowledgeBase{}, &rag.Document{}, &rag.Chunk{},
 		&agent.Definition{}, &agent.Run{}, &agent.RunMessage{},
 	); err != nil {
@@ -96,6 +97,7 @@ func (s *Stores) AISafetyStore() aisafety.Store       { return &AISafetyStore{db
 func (s *Stores) RagStore() rag.Store                 { return &RagStore{db: s.DB} }
 func (s *Stores) AgentStore() agent.Store             { return &AgentStore{db: s.DB} }
 func (s *Stores) NotifyStore() notify.Store           { return &NotifyStore{db: s.DB} }
+func (s *Stores) MenuStore() menu.Store               { return &MenuStore{db: s.DB} }
 
 // AuditChainStore 按传入哈希器构造持久化审计链（SM3/SHA-256 由调用方
 // 依 BASALT_CRYPTO_ALGO 决定）。

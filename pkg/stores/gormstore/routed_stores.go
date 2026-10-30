@@ -28,6 +28,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/finance"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 	"github.com/basalt-go/basalt/pkg/modules/job"
+	"github.com/basalt-go/basalt/pkg/modules/menu"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
 	"github.com/basalt-go/basalt/pkg/modules/notify"
 	"github.com/basalt-go/basalt/pkg/modules/org"
@@ -256,6 +257,27 @@ func (s *RoutedJobStore) ListJobs(ctx context.Context) ([]job.Job, error) {
 		return nil, err
 	}
 	return (&JobStore{db: db}).ListJobs(ctx)
+}
+func (s *RoutedJobStore) DeleteJob(ctx context.Context, id string) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&JobStore{db: db}).DeleteJob(ctx, id)
+}
+func (s *RoutedJobStore) SaveRun(ctx context.Context, rec job.RunRecord) (job.RunRecord, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return job.RunRecord{}, err
+	}
+	return (&JobStore{db: db}).SaveRun(ctx, rec)
+}
+func (s *RoutedJobStore) ListRuns(ctx context.Context, jobID string, offset, limit int) ([]job.RunRecord, int, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	return (&JobStore{db: db}).ListRuns(ctx, jobID, offset, limit)
 }
 
 // ---------- finance ----------
@@ -749,6 +771,7 @@ func (rs *RoutedStores) WorkflowDefStore() workflow.DefStore { return &RoutedWor
 func (rs *RoutedStores) RagStore() rag.Store                 { return &RoutedRagStore{rs.res} }
 func (rs *RoutedStores) AgentStore() agent.Store             { return &RoutedAgentStore{rs.res} }
 func (rs *RoutedStores) NotifyStore() notify.Store           { return &RoutedNotifyStore{rs.res} }
+func (rs *RoutedStores) MenuStore() menu.Store               { return &RoutedMenuStore{rs.res} }
 
 // ---------- notify ----------
 
@@ -882,4 +905,75 @@ func (s *RoutedNotifyStore) UnreadCount(ctx context.Context, userID string) (int
 		return 0, err
 	}
 	return (&NotifyStore{db: db}).UnreadCount(ctx, userID)
+}
+
+// ---------- menu ----------
+
+// RoutedMenuStore 实现 menu.Store（请求级租户路由）。
+type RoutedMenuStore struct{ tenantResolver }
+
+var _ menu.Store = (*RoutedMenuStore)(nil)
+
+func (s *RoutedMenuStore) Create(ctx context.Context, m menu.Menu) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&MenuStore{db: db}).Create(ctx, m)
+}
+func (s *RoutedMenuStore) Update(ctx context.Context, m menu.Menu) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&MenuStore{db: db}).Update(ctx, m)
+}
+func (s *RoutedMenuStore) Delete(ctx context.Context, id string) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&MenuStore{db: db}).Delete(ctx, id)
+}
+func (s *RoutedMenuStore) Get(ctx context.Context, id string) (menu.Menu, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return menu.Menu{}, err
+	}
+	return (&MenuStore{db: db}).Get(ctx, id)
+}
+func (s *RoutedMenuStore) List(ctx context.Context) ([]menu.Menu, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return (&MenuStore{db: db}).List(ctx)
+}
+func (s *RoutedMenuStore) CountByPath(ctx context.Context, path, excludeID string) (int64, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return (&MenuStore{db: db}).CountByPath(ctx, path, excludeID)
+}
+func (s *RoutedMenuStore) SetRoleMenus(ctx context.Context, roleID string, menuIDs []string) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&MenuStore{db: db}).SetRoleMenus(ctx, roleID, menuIDs)
+}
+func (s *RoutedMenuStore) GetRoleMenus(ctx context.Context, roleID string) ([]string, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return (&MenuStore{db: db}).GetRoleMenus(ctx, roleID)
+}
+func (s *RoutedMenuStore) BoundRoleCount(ctx context.Context, menuID string) (int64, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return (&MenuStore{db: db}).BoundRoleCount(ctx, menuID)
 }
