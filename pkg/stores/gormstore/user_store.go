@@ -18,7 +18,16 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/basalt-go/basalt/pkg/modules/audit"
+	"github.com/basalt-go/basalt/pkg/modules/contract"
+	"github.com/basalt-go/basalt/pkg/modules/dict"
+	"github.com/basalt-go/basalt/pkg/modules/document"
+	"github.com/basalt-go/basalt/pkg/modules/finance"
+	"github.com/basalt-go/basalt/pkg/modules/file"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
+	"github.com/basalt-go/basalt/pkg/modules/job"
+	"github.com/basalt-go/basalt/pkg/modules/notice"
+	"github.com/basalt-go/basalt/pkg/modules/org"
+	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
 	"github.com/basalt-go/basalt/pkg/modules/tenant"
 )
 
@@ -36,13 +45,22 @@ func Open(dsn string) (*Stores, error) {
 func OpenDB(db *gorm.DB) (*Stores, error) {
 	if err := db.AutoMigrate(
 		&identity.User{}, &identity.Role{}, &tenant.Tenant{},
+		&org.Dept{}, &org.Post{},
+		&dict.Type{}, &dict.Data{},
+		&sysconfig.Item{},
+		notice.Notice{},
+		&file.Meta{},
+		&job.Job{},
+		&finance.Expense{}, &finance.Invoice{}, &finance.Budget{}, &finance.Payment{},
+		&document.Doc{},
+		&contract.Contract{},
 	); err != nil {
 		return nil, err
 	}
 	return &Stores{DB: db}, nil
 }
 
-// Stores 聚合三个存储实现，并暴露底层 *gorm.DB 供扩展。
+// Stores 聚合存储实现，并暴露底层 *gorm.DB 供扩展。
 type Stores struct {
 	DB *gorm.DB
 }
@@ -50,6 +68,16 @@ type Stores struct {
 func (s *Stores) UserStore() identity.UserStore   { return &UserStore{db: s.DB} }
 func (s *Stores) RoleStore() identity.RoleStore   { return &RoleStore{db: s.DB} }
 func (s *Stores) TenantStore() tenant.TenantStore { return &TenantStore{db: s.DB} }
+
+func (s *Stores) OrgStore() org.Store                 { return &OrgStore{db: s.DB} }
+func (s *Stores) DictStore() dict.Store               { return &DictStore{db: s.DB} }
+func (s *Stores) SysConfigStore() sysconfig.Store     { return &SysConfigStore{db: s.DB} }
+func (s *Stores) NoticeStore() notice.Store           { return &NoticeStore{db: s.DB} }
+func (s *Stores) FileStore() file.Store               { return &FileStore{db: s.DB} }
+func (s *Stores) JobStore() job.Store                 { return &JobStore{db: s.DB} }
+func (s *Stores) FinanceStore() finance.Store         { return &FinanceStore{db: s.DB} }
+func (s *Stores) DocumentStore() document.Store       { return &DocumentStore{db: s.DB} }
+func (s *Stores) ContractStore() contract.Store       { return &ContractStore{db: s.DB} }
 
 // AuditChainStore 按传入哈希器构造持久化审计链（SM3/SHA-256 由调用方
 // 依 BASALT_CRYPTO_ALGO 决定）。
