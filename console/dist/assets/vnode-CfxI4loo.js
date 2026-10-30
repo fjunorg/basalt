@@ -1,0 +1,1 @@
+import{_ as a,at as o,b5 as f,af as m,ac as i,bx as b,J as c}from"./index-CxzagOL8.js";const t=r=>{const p=a(r)?r:[r],s=[];return p.forEach(e=>{var n;a(e)?s.push(...t(e)):o(e)&&((n=e.component)!=null&&n.subTree)?s.push(e,...t(e.component.subTree)):o(e)&&a(e.children)?s.push(...t(e.children)):o(e)&&e.shapeFlag===2?s.push(...t(e.type())):s.push(e)}),s};export{t as f};
