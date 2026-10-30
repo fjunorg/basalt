@@ -4,6 +4,94 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-31
+
+P0 平台完备性批次（竞品 Gap 分析 `deliverables/09-competitive-gap-analysis.md` 第一批 P0 落地）：通知中心、部门级数据权限、OAuth2/SSO、动态菜单、job cron、在线用户、租户套餐、错误码管理。
+
+### 新增
+
+- **notify（通知中心 v0.1）**：短信/邮件/站内信三渠道——模板（三渠道共用，
+  `{{var}}` 渲染纯函数）、SMTP 账号与短信渠道配置（凭据经环境变量注入
+  不落库）、发送日志（sent/failed 双态 + 分页）、站内信独立收件箱（定向
+  到人含已读态；notice 保持全员公告语义，选型分离）；Notifier 适配器
+  抽象：SMTP 标准库实现零新依赖、阿里云短信 Dysmsapi RPC V1 自研签名、
+  腾讯云留接口缝；失败不自动重试（明确失败 + 手动重发语义）；发送事件
+  入审计链；权限点 notify:manage/list。
+- **部门级数据权限（dataperm）**：pkg/kernel/dataperm Scope 纯模型 +
+  ctx 注入（零业务依赖）；identity 角色新增 DataScope 五档
+  （all/dept/dept_and_below/self/custom，多角色并集取宽，解析失败
+  fail-closed 降 self）；声明式查询注入范式接入三模块——org（部门树
+  裁剪）、finance（部门+申请人双维）、document（拟稿部门裁剪）；语义
+  分层：租户隔离=硬边界（先裁剪）、数据权限=角色软范围（后裁剪），
+  交集叠加正交不混淆；15 用例含五档×双模块矩阵与 sqlite 重启恢复。
+- **OAuth2/SSO（identity 扩展）**：OAuth2 2.1 核心——授权码模式
+  （PKCE S256 公共客户端强制、code 单次使用短时效、redirect_uri 逐字节
+  双点校验）、客户端凭证模式（机器身份）、轮换式刷新（重放检测吊销
+  整条授权链、scope 仅可收窄）；SSO 应用管理（CRUD + secret 一次性
+  下发/轮换，SHA-256 哈希存储）；三方登录：SocialProvider 接口缝 +
+  钉钉实装（state HMAC 防伪、自动注册/复用）+ 企微留缝；token 复用
+  TokenIssuer 同密钥体系；`secure --check` 新增 sso-social-secrets
+  检查项（六项扩至七项）。
+- **menu（动态菜单 v0.1）**：菜单实体（name/path/icon/perm/parent/
+  sort/enabled）CRUD（父级成环校验、删除保护 409）+ 角色绑定 +
+  `/api/v1/menus/me` 按权限过滤菜单树下发（含 perms 快照与 source
+  标识，过滤谓词复用 identity 通配规则）；API 下发为空时前端回退
+  静态映射（契约 deliverables/menu-api-contract.md）；种子将现有页面
+  静态结构全量结构化（工作台/系统管理/系统监控三分组 IA，幂等播种，
+  已播种库不重播）；菜单管理页本身不入种子（前端固定渲染防死锁）。
+- **job cron 增强**：自研标准 5 段 cron 解析器（约 200 行零新依赖；
+  dom/dow Vixie OR 语义，Next 逐分钟扫描上限 4 年）；任务级二选一
+  IntervalSec/CronExpr（cron 优先），错过不补跑语义两态一致；在线动态
+  HTTP 回调任务（job:manage 权限，目标 http(s) 校验、30s 超时、重启
+  LoadDynamic 恢复并重算 NextRun，内置任务不可删）；执行日志持久化 +
+  分页查询 API；runs API 升级 {total,offset,items} 包装。
+- **在线用户（identity 扩展）**：会话注册表（登录登记/登出单会话吊销/
+  过期惰性清理，令牌指纹主键不存原始 token）；踢下线选型：用户级
+  kicked_at 时间戳（O(1)、全端立即生效，优于短 TTL+refresh 与黑名单）；
+  AuthMiddleware 吊销检查器可选装配（未注入保持纯无状态向后兼容）；
+  端点 GET /sessions、DELETE /sessions/user/{id}、POST /logout。
+- **tenantpkg（租户套餐 v0.1）**：套餐 CRUD（菜单/权限集合模板）+
+  租户绑定/解绑 + 绑定计数/在用禁删；裁剪生效：identity Facade
+  SetPermFilter 钩子单点交集过滤，menu /me 菜单树复用 Can 自动联动。
+- **errcode（错误码管理 v0.1）**：错误码注册表（模块/码/描述）CRUD +
+  现有各模块错误码盘点入库种子（合理抽样）。
+- **Console（22 → 30 视图）**：新增通知中心、SSO 应用管理/授权确认/
+  钉钉回调、菜单管理、在线用户、租户套餐、错误码、job 动态任务与执行
+  日志增强页；**动态菜单改造**——菜单改后端下发驱动、API 空回退静态
+  映射；交互层深度对齐 Semi Design（semi-interactions.css：motion
+  节奏、对话框、深色 Toast，EP 默认定制覆盖约 95%，零模板/逻辑改动）。
+- **serve 装配扩至 21 模块**（sqlite/memory 两形态一致，serve 层全量
+  装配冒烟测试锁定）：dedicated-db 路由接入扩至 14 个模块（+notify/
+  menu，RoutedNotifyStore/RoutedMenuStore 请求级路由）；tenantpkg/
+  errcode 为平台级数据固定主库（与 identity/tenant/audit/quota 同
+  边界，见 docs/tenant-isolation.md §2.3）；postgres/openGauss 分支
+  仍为显式 pending。
+
+### 修复
+
+- **发版阻断**：serve sqlite 分支缺 notify/menu/tenantpkg/errcode 四模块
+  接线（var 零值进注册列表，sqlite 形态启动 panic）——补接线并新增
+  cmd/basalt/serve_smoke_test 永久锁定 serve 层 21 模块全装配盲区
+  （此前 module_stores_test 全装配不经 serve 层故未拦截）。
+- v1.4.0 终验三项遗留：BASALT_CRYPTO_ALGO 中途切换后审计链核验改
+  多算法逐段核验（历史算法段不再误报断链）；RoutedStore 空视图
+  data:null 统一兜底为 []（38 处 List 查询）；SM2 私钥运维文档化。
+- JWT 无 jti 缺陷（同秒同用户重复签发令牌相同，单会话登出误伤全部
+  会话）——签发增加 128 位随机 jti；RevokedAt 指针化修复 sqlite
+  零值时间戳判定失效。
+
+### 战略决策记录
+
+- **支付系统维持不自研**：延续 docs/03 v0.1「商城/CRM/ERP/支付明确
+  不做」边界（B 端收款经生态集成承接），本次竞品 Gap 分析复核确认。
+- **行业业务域生态承接**：Mall/ERP/WMS/CRM/CMS/MES/HRM/PMS/IoT 等
+  芋道全家桶域不自研，以模块插件机制 + 生态接入方式承接（竞品 Gap
+  报告 §3 P2 建议）。
+
+### 变更
+
+- 二进制默认版本基线 bump 至 1.5.0（随发布 ldflags 覆盖）。
+
 ## [1.5.0] - 2026-10-30
 
 Admin Console 视觉风格对齐 Semi Design——纯样式变更，技术栈保持 Element Plus（非组件库迁移）。

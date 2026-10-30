@@ -36,12 +36,13 @@
 - **重启恢复**：租户库是普通库文件/网络库，重启后 Router 缓存冷启动、按需重连，数据延续。
 - **解析成本**：每请求 1-2 次主库点查（用户→租户）。sqlite 本地毫秒级；生产高频场景可在 `dbFor` 层加 TTL 缓存（接口不变）。
 
-### 2.3 全量接入（v1.4.0 起）
+### 2.3 全量接入（v1.4.0 起；v1.6.0 扩至 14 模块）
 
-`BASALT_TENANT_ROUTING=on` 时**全部业务模块**经 `RoutedStores` 聚合接入请求级路由：org / dict / sysconfig / notice / file（元数据）/ job / finance / document / contract / workflow（实例+定义）/ rag / agent。实现模式：每模块一个 `RoutedXxxStore` 内嵌共享 `tenantResolver`（dbFor 解析），委托对应固定库 store 的同名方法——查询逻辑单一来源、模块层零改动。
+`BASALT_TENANT_ROUTING=on` 时**业务模块**经 `RoutedStores` 聚合接入请求级路由：org / dict / sysconfig / notice / file（元数据）/ job / finance / document / contract / workflow（实例+定义）/ rag / agent / **notify / menu（v1.6.0 加入）**。实现模式：每模块一个 `RoutedXxxStore` 内嵌共享 `tenantResolver`（dbFor 解析），委托对应固定库 store 的同名方法——查询逻辑单一来源、模块层零改动。
 
 **接入边界**（不路由，理由）：
 - identity / tenant / audit / quota：平台级数据（跨租户认证、租户目录本身、全局审计链、平台配额），按 §2.1 库边界固定主库
+- **tenantpkg / errcode（v1.6.0 新增）**：租户套餐模板与错误码注册表均为平台级配置数据，与 identity/tenant 同边界固定主库
 - aisafety：Engine 为进程级内存快照（变更后整体 Reload），与请求级路由语义冲突；随按租户策略快照演进后接入
 - file 字节流：元数据已路由；文件本体在共享磁盘 `BASALT_UPLOAD_DIR`（Storage 接口与库无关），物理隔离随对象存储接入
 
