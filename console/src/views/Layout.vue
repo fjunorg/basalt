@@ -26,6 +26,8 @@
             <el-menu-item v-if="canRoute('/notices')" index="/notices">通知公告</el-menu-item>
             <el-menu-item v-if="canRoute('/files')" index="/files">文件管理</el-menu-item>
             <el-menu-item v-if="canRoute('/wfdefs')" index="/wfdefs">流程定义</el-menu-item>
+            <el-menu-item v-if="canRoute('/notify')" index="/notify">通知中心</el-menu-item>
+            <el-menu-item v-if="canRoute('/sso/apps')" index="/sso/apps">SSO 应用</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="work">

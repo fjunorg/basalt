@@ -114,6 +114,47 @@ export function hasPerm(perms: string[] | null | undefined, want: string): boole
   return (perms || []).some((p) => p === '*' || p === want || (p.endsWith('*') && want.startsWith(p.slice(0, -1))))
 }
 
+// ===== SSO/OAuth2（契约 sso-api-contract.md）=====
+
+// §1 应用实体（Client；secret 仅创建/轮换响应一次性出现）
+export interface SsoApp {
+  id: string
+  client_id: string
+  name: string
+  redirect_uris?: string[]
+  scopes?: string[]
+  grants?: string[]
+  is_public: boolean
+  status: string
+  tenant_id?: string
+  created_at?: string
+  secret?: string
+}
+
+// §2.1 GET /authorize 授权描述（确认页渲染）
+export interface SsoAuthorizeDesc {
+  client_name: string
+  scopes?: string[]
+  redirect_uri: string
+  state?: string
+}
+
+// §2 授权端点专用请求：错误体为 RFC 6749 格式（非 Envelope），
+// 不走通用 api() 解包，独立 fetch 处理两种响应形态。
+export async function ssoAuthorizeGet(params: URLSearchParams): Promise<SsoAuthorizeDesc> {
+  const res = await fetch('/api/v1/identity/sso/authorize?' + params, {
+    headers: { Authorization: 'Bearer ' + token.get() },
+  })
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+  if (!res.ok) {
+    // OAuth2 错误体：{error, error_description}（契约头部约定）
+    const err = body.error as string | undefined
+    const desc = body.error_description as string | undefined
+    throw new Error(desc || err || `请求失败(${res.status})`)
+  }
+  return (body.data as SsoAuthorizeDesc) || (body as unknown as SsoAuthorizeDesc)
+}
+
 // ===== 菜单模块（契约 menu-api-contract.md v1）=====
 
 // §1 MenuNode（children 仅 /me 树返回）

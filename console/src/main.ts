@@ -27,6 +27,9 @@ import { api, token, perms, hasPerm, type MeInfo } from './api'
 // 不设页面级权限点；其中的管理型操作由页面内按钮级 can() 控制。
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: () => import('./views/Login.vue') },
+  // SSO 授权确认页（Layout 外全屏流程，登录级）：三方应用引导用户至此，
+  // 确认后顶层跳转回应用（契约 sso-api-contract.md §2）
+  { path: '/sso/authorize', component: () => import('./views/SsoAuthorize.vue'), meta: { title: '授权确认' } },
   {
     path: '/',
     component: () => import('./views/Layout.vue'),
@@ -56,6 +59,10 @@ const routes: RouteRecordRaw[] = [
       // 菜单管理（v1.6.0 动态菜单配套）：权限点依据 menu-api-contract.md §2.2；
       // 入口在 Layout 固定渲染（不经动态菜单树，防未播种时无入口死锁）
       { path: 'system/menus', component: () => import('./views/MenuMgmt.vue'), meta: { title: '菜单管理', perms: ['system:menu:list'] } },
+      // 通知中心管理（notify 模块已交付）：页面级 notify:list，发送/写操作 manage
+      { path: 'notify', component: () => import('./views/NotifyCenter.vue'), meta: { title: '通知中心', perms: ['notify:list'] } },
+      // SSO 应用管理（契约 sso-api-contract.md §1）
+      { path: 'sso/apps', component: () => import('./views/SsoApps.vue'), meta: { title: 'SSO 应用', perms: ['identity:sso:manage'] } },
       { path: 'forbidden', component: () => import('./views/Forbidden.vue'), meta: { title: '无权访问' } },
     ],
   },
