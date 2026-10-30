@@ -16,6 +16,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/kernel/crypto"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/audit"
+	"github.com/basalt-go/basalt/pkg/modules/aisafety"
 	"github.com/basalt-go/basalt/pkg/modules/contract"
 	"github.com/basalt-go/basalt/pkg/modules/dict"
 	"github.com/basalt-go/basalt/pkg/modules/document"
@@ -121,6 +122,7 @@ func newServeCmd() *cobra.Command {
 			var conM *contract.Module
 			var wfM *workflow.Module
 			var ragM *rag.Module
+			var safetyM *aisafety.Module
 			switch cfg.Storage {
 			case "sqlite":
 				dsn := cfg.DBDSN
@@ -155,6 +157,7 @@ func newServeCmd() *cobra.Command {
 				wfM = workflow.NewWithStores(st.WorkflowStore(), st.WorkflowDefStore())
 				ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
 				ragM = rag.NewWithStore(st.RagStore(), ragFiles, ragEmb)
+				safetyM = aisafety.NewWithStore(st.AISafetyStore())
 			case "postgres", "opengauss":
 				// openGauss 走 postgres 协议方言；驱动（gorm.io/driver/
 				// postgres 或信创社区驱动）接线后在此 OpenDB 注入即可，
@@ -176,7 +179,12 @@ func newServeCmd() *cobra.Command {
 				conM = contract.New()
 				ragFiles = &ragFileSource{store: fileM.Store(), storage: localStorage}
 				ragM = rag.New(ragFiles, ragEmb)
+				safetyM = aisafety.New()
 			}
+
+			// 内容安全审核器注入网关（两路径均保留审核能力：
+			// 持久化路径词库/策略跨重启延续，内存路径随进程）。
+			gw.SetInspector(safetyM.Inspector())
 
 			// OpenAI 兼容提供方装配（私有化一等公民）：
 			// BASALT_AI_PROVIDER_URL/NAME/KEY，如 vLLM/Ollama/Qwen/GLM 端点。
@@ -187,7 +195,7 @@ func newServeCmd() *cobra.Command {
 				idm, tnt, adm,
 				orgM, dictM, sysM, notM,
 				fileM, jobM,
-				wfM, finM, docM, conM, gw, ragM,
+				wfM, finM, docM, conM, gw, ragM, safetyM,
 			} {
 				if err := a.Registry().Register(m); err != nil {
 					return err
