@@ -102,50 +102,47 @@ func (r *TenantRouter) Close() {
 	}
 }
 
-// RoutedDictStore 是 dict.Store 的租户路由实现（dedicated-db 端到端
-// 示范，其余业务模块照此模式接入）：
-//   - 请求未认证 / 平台用户（无租户）→ 主库
-//   - 租户 IsolationMode != dedicated-db → 主库（shared-schema 行级，
-//     现状行为）
-//   - dedicated-db 租户 → 专属库（懒初始化；不可用时明确报错，
-//     不回退主库）
-//
-// 租户解析：ctx 的 userID → 用户记录 TenantID → 租户记录
-// IsolationMode/DBRef。每请求 1-2 次主库点查（sqlite 本地毫秒级），
-// 生产高频场景可在此层加 TTL 缓存（保持接口不变）。
-type RoutedDictStore struct {
+// tenantResolver 是路由型 store 的公共底座：按请求上下文解析目标库
+//（规则见 RoutedDictStore 类型注释）。
+type tenantResolver struct {
 	master  *gorm.DB
 	users   identity.UserStore
 	tenants tenant.TenantStore
 	router  *TenantRouter
 }
 
+// dbFor 按请求上下文解析目标库：
+//   - 未认证 / 平台用户 / shared-schema 租户 → 主库（现状行为）
+//   - dedicated-db 租户 → 专属库（懒初始化；不可用明确报错不回退）
+func (r *tenantResolver) dbFor(ctx context.Context) (*gorm.DB, error) {
+	uid, ok := identity.UserIDFrom(ctx)
+	if !ok {
+		return r.master, nil // 未认证链路（内部任务等）：主库
+	}
+	u, err := r.users.Get(ctx, uid)
+	if err != nil || u.TenantID == "" {
+		return r.master, nil // 平台用户或用户已删除：主库
+	}
+	t, err := r.tenants.Get(ctx, u.TenantID)
+	if err != nil {
+		return r.master, nil
+	}
+	if t.IsolationMode != tenant.IsolationDedicatedDB {
+		return r.master, nil // 行级隔离租户：主库（现状）
+	}
+	return r.router.DB(t.DBRef)
+}
+
+// RoutedDictStore 是 dict.Store 的租户路由实现（dedicated-db 端到端
+// 示范；全量接入见 routed_stores.go）。
+type RoutedDictStore struct{ tenantResolver }
+
 // 编译期接口对齐检查。
 var _ dict.Store = (*RoutedDictStore)(nil)
 
 // NewRoutedDictStore 构造路由型字典存储。
 func NewRoutedDictStore(master *gorm.DB, users identity.UserStore, tenants tenant.TenantStore, router *TenantRouter) *RoutedDictStore {
-	return &RoutedDictStore{master: master, users: users, tenants: tenants, router: router}
-}
-
-// dbFor 按请求上下文解析目标库（路由规则见类型注释）。
-func (s *RoutedDictStore) dbFor(ctx context.Context) (*gorm.DB, error) {
-	uid, ok := identity.UserIDFrom(ctx)
-	if !ok {
-		return s.master, nil // 未认证链路（内部任务等）：主库
-	}
-	u, err := s.users.Get(ctx, uid)
-	if err != nil || u.TenantID == "" {
-		return s.master, nil // 平台用户或用户已删除：主库
-	}
-	t, err := s.tenants.Get(ctx, u.TenantID)
-	if err != nil {
-		return s.master, nil
-	}
-	if t.IsolationMode != tenant.IsolationDedicatedDB {
-		return s.master, nil // 行级隔离租户：主库（现状）
-	}
-	return s.router.DB(t.DBRef)
+	return &RoutedDictStore{tenantResolver{master: master, users: users, tenants: tenants, router: router}}
 }
 
 func (s *RoutedDictStore) CreateType(ctx context.Context, t dict.Type) error {

@@ -6,7 +6,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/basalt-go/basalt/pkg/modules/agent"
+	"github.com/basalt-go/basalt/pkg/modules/contract"
 	"github.com/basalt-go/basalt/pkg/modules/dict"
+	"github.com/basalt-go/basalt/pkg/modules/document"
+	"github.com/basalt-go/basalt/pkg/modules/file"
+	"github.com/basalt-go/basalt/pkg/modules/finance"
+	"github.com/basalt-go/basalt/pkg/modules/job"
+	"github.com/basalt-go/basalt/pkg/modules/notice"
+	"github.com/basalt-go/basalt/pkg/modules/org"
+	"github.com/basalt-go/basalt/pkg/modules/rag"
+	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
+	"github.com/basalt-go/basalt/pkg/modules/workflow"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 	"github.com/basalt-go/basalt/pkg/modules/tenant"
 	"github.com/basalt-go/basalt/pkg/stores/gormstore"
@@ -172,5 +183,126 @@ func TestTenantRouterErrorSemantics(t *testing.T) {
 	rs2 := gormstore.NewRoutedDictStore(master.DB, master.UserStore(), master.TenantStore(), router2)
 	if _, err := rs2.ListTypes(ctxAsUser(ctx, userA)); !errors.Is(err, gormstore.ErrTenantDBUnavailable) {
 		t.Fatalf("conn fail: %v", err)
+	}
+}
+
+// TestRoutedStoresFullIsolation 全量隔离：双 dedicated 租户跨全部
+// 接入模块——租户 A 写入后租户 B 列表不可见（每模块一个写+读探针）。
+func TestRoutedStoresFullIsolation(t *testing.T) {
+	dir := t.TempDir()
+	master, userA, userB, _ := setupTenantFixture(t, dir)
+	router := gormstore.NewTenantRouterWithDSN(func(ref string) string {
+		if ref == "db-a" || ref == "db-b" {
+			return dir + "/" + ref + ".db"
+		}
+		return ""
+	})
+	defer router.Close()
+	ctx := context.Background()
+	rs := gormstore.NewRoutedStores(gormstore.NewRoutedResolver(
+		master.DB, master.UserStore(), master.TenantStore(), router))
+
+	now := time.Now().UTC()
+	probes := []struct {
+		name  string
+		write func(uid string) error
+		count func(uid string) (int, error)
+	}{
+		{"org", func(uid string) error {
+			return rs.OrgStore().CreateDept(ctxAsUser(ctx, uid), org.Dept{ID: "d-" + uid, Name: "部", Sort: 1, Status: "active", CreatedAt: now})
+		}, func(uid string) (int, error) {
+			l, err := rs.OrgStore().ListDepts(ctxAsUser(ctx, uid))
+			return len(l), err
+		}},
+		{"dict", func(uid string) error {
+			return rs.DictStore().CreateType(ctxAsUser(ctx, uid), dict.Type{ID: "t-" + uid, Code: "c", Name: "类型", Status: "active", CreatedAt: now})
+		}, func(uid string) (int, error) {
+			l, err := rs.DictStore().ListTypes(ctxAsUser(ctx, uid))
+			return len(l), err
+		}},
+		{"sysconfig", func(uid string) error {
+			return rs.SysConfigStore().Create(ctxAsUser(ctx, uid), sysconfig.Item{ID: "k-" + uid, Key: "sys.title", Value: "v"})
+		}, func(uid string) (int, error) {
+			l, err := rs.SysConfigStore().List(ctxAsUser(ctx, uid))
+			return len(l), err
+		}},
+		{"notice", func(uid string) error {
+			return rs.NoticeStore().Create(ctxAsUser(ctx, uid), notice.Notice{ID: "n-" + uid, Title: "公告", Status: notice.StatusDraft, CreatedAt: now})
+		}, func(uid string) (int, error) {
+			l, err := rs.NoticeStore().List(ctxAsUser(ctx, uid), false)
+			return len(l), err
+		}},
+		{"file", func(uid string) error {
+			return rs.FileStore().Create(ctxAsUser(ctx, uid), file.Meta{ID: "f-" + uid, Name: "a.txt", StoragePath: "p", CreatedAt: now})
+		}, func(uid string) (int, error) {
+			l, err := rs.FileStore().List(ctxAsUser(ctx, uid))
+			return len(l), err
+		}},
+		{"job", func(uid string) error {
+			return rs.JobStore().SaveJob(ctxAsUser(ctx, uid), job.Job{ID: "j-" + uid, Name: "任务", Enabled: true, NextRun: now})
+		}, func(uid string) (int, error) {
+			l, err := rs.JobStore().ListJobs(ctxAsUser(ctx, uid))
+			return len(l), err
+		}},
+		{"finance", func(uid string) error {
+			return rs.FinanceStore().CreateExpense(ctxAsUser(ctx, uid), finance.Expense{ID: "e-" + uid, ApplicantID: uid, Amount: 1, Status: finance.ExpDraft, CreatedAt: now})
+		}, func(uid string) (int, error) {
+			l, err := rs.FinanceStore().ListExpenses(ctxAsUser(ctx, uid), "")
+			return len(l), err
+		}},
+		{"document", func(uid string) error {
+			return rs.DocumentStore().Create(ctxAsUser(ctx, uid), document.Doc{ID: "doc-" + uid, Title: "公文", Status: document.StDraft, CreatorID: uid, CreatedAt: now})
+		}, func(uid string) (int, error) {
+			l, err := rs.DocumentStore().List(ctxAsUser(ctx, uid), "")
+			return len(l), err
+		}},
+		{"contract", func(uid string) error {
+			return rs.ContractStore().Create(ctxAsUser(ctx, uid), contract.Contract{ID: "c-" + uid, Title: "合同", Status: contract.StDraft, CreatorID: uid, CreatedAt: now})
+		}, func(uid string) (int, error) {
+			l, err := rs.ContractStore().List(ctxAsUser(ctx, uid), "")
+			return len(l), err
+		}},
+		{"workflow", func(uid string) error {
+			return rs.WorkflowStore().Create(ctxAsUser(ctx, uid), workflow.Instance{ID: "w-" + uid, BusinessKey: "bk-" + uid, Summary: "流程", Steps: []workflow.Step{{Approvers: []string{uid}}}, CreatorID: uid, Status: workflow.StatusPending, CreatedAt: now})
+		}, func(uid string) (int, error) {
+			l, err := rs.WorkflowStore().ListAll(ctxAsUser(ctx, uid))
+			return len(l), err
+		}},
+		{"rag", func(uid string) error {
+			return rs.RagStore().CreateKB(ctxAsUser(ctx, uid), rag.KnowledgeBase{ID: "kb-" + uid, Name: "知识库"})
+		}, func(uid string) (int, error) {
+			l, err := rs.RagStore().ListKBs(ctxAsUser(ctx, uid))
+			return len(l), err
+		}},
+		{"agent", func(uid string) error {
+			return rs.AgentStore().CreateDef(ctxAsUser(ctx, uid), agent.Definition{ID: "ad-" + uid, Name: "智能体-" + uid, Model: "m"})
+		}, func(uid string) (int, error) {
+			l, err := rs.AgentStore().ListDefs(ctxAsUser(ctx, uid))
+			return len(l), err
+		}},
+	}
+
+	for _, p := range probes {
+		p := p
+		t.Run(p.name, func(t *testing.T) {
+			if err := p.write(userA); err != nil {
+				t.Fatalf("A write: %v", err)
+			}
+			nA, err := p.count(userA)
+			if err != nil || nA != 1 {
+				t.Fatalf("A count = %d %v（应只见自己的 1 条）", nA, err)
+			}
+			nB, err := p.count(userB)
+			if err != nil || nB != 0 {
+				t.Fatalf("B count = %d %v（A 的写入对 B 必须不可见）", nB, err)
+			}
+			// B 也写一条：各自 1 条，互不串扰
+			if err := p.write(userB); err != nil {
+				t.Fatalf("B write: %v", err)
+			}
+			if nA, _ := p.count(userA); nA != 1 {
+				t.Fatalf("A count after B write = %d（B 写入不得进入 A 库）", nA)
+			}
+		})
 	}
 }
