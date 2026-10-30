@@ -79,6 +79,9 @@ P0 平台完备性批次（竞品 Gap 分析 `deliverables/09-competitive-gap-an
 - JWT 无 jti 缺陷（同秒同用户重复签发令牌相同，单会话登出误伤全部
   会话）——签发增加 128 位随机 jti；RevokedAt 指针化修复 sqlite
   零值时间戳判定失效。
+- job 测试 race 模式两处间歇性 flaky（tick 分钟边界竞态断言、
+  动态任务生命周期用例 List() 二次调用索引错位）——修复后
+  -race ×12 连跑全过（936f9a8）。
 
 ### 战略决策记录
 
