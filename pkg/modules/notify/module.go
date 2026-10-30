@@ -294,12 +294,13 @@ func (m *Module) Send(ctx context.Context, channel, receiver, templateCode strin
 		return fail(ErrTplDisabled)
 	}
 	content := Render(tpl.Content, vars)
-	log.Subject, log.Content = tpl.Subject, content
+	subject := Render(tpl.Subject, vars)
+	log.Subject, log.Content = subject, content
 
 	var sendErr error
 	switch channel {
 	case ChannelInbox:
-		msg := InboxMsg{ID: newID(), UserID: receiver, Title: tpl.Subject,
+		msg := InboxMsg{ID: newID(), UserID: receiver, Title: subject,
 			Content: content, CreatedAt: time.Now().UTC()}
 		sendErr = m.store.CreateInbox(ctx, msg)
 	case ChannelEmail:
@@ -307,7 +308,7 @@ func (m *Module) Send(ctx context.Context, channel, receiver, templateCode strin
 		if n.Cfg.ID == "" {
 			sendErr = ErrNoSMTP
 		} else {
-			sendErr = n.Send(ctx, receiver, tpl.Subject, content)
+			sendErr = n.Send(ctx, receiver, subject, content)
 		}
 	case ChannelSMS:
 		chanCfg, err := m.defaultSMSChannel(ctx)
