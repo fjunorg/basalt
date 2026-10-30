@@ -28,6 +28,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 	"github.com/basalt-go/basalt/pkg/modules/job"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
+	"github.com/basalt-go/basalt/pkg/modules/notify"
 	"github.com/basalt-go/basalt/pkg/modules/org"
 	"github.com/basalt-go/basalt/pkg/modules/rag"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
@@ -49,6 +50,7 @@ func Open(dsn string) (*Stores, error) {
 func OpenDB(db *gorm.DB) (*Stores, error) {
 	if err := db.AutoMigrate(
 		&identity.User{}, &identity.Role{}, &tenant.Tenant{},
+		&identity.Client{}, &identity.AuthCode{}, &identity.RefreshToken{},
 		&org.Dept{}, &org.Post{},
 		&dict.Type{}, &dict.Data{},
 		&sysconfig.Item{},
@@ -60,6 +62,7 @@ func OpenDB(db *gorm.DB) (*Stores, error) {
 		&contract.Contract{},
 		&workflow.Instance{}, &workflow.Action{}, &workflow.Definition{},
 		&aisafety.Term{}, &aisafety.Policy{}, &aisafety.Settings{},
+		&notify.Template{}, &notify.SMTPConfig{}, &notify.SMSChannel{}, &notify.SendLog{}, &notify.InboxMsg{},
 		&rag.KnowledgeBase{}, &rag.Document{}, &rag.Chunk{},
 		&agent.Definition{}, &agent.Run{}, &agent.RunMessage{},
 	); err != nil {
@@ -75,6 +78,7 @@ type Stores struct {
 
 func (s *Stores) UserStore() identity.UserStore   { return &UserStore{db: s.DB} }
 func (s *Stores) RoleStore() identity.RoleStore   { return &RoleStore{db: s.DB} }
+func (s *Stores) SSOStore() identity.SSOStore     { return &SSOStore{db: s.DB} }
 func (s *Stores) TenantStore() tenant.TenantStore { return &TenantStore{db: s.DB} }
 
 func (s *Stores) OrgStore() org.Store                 { return &OrgStore{db: s.DB} }
@@ -91,6 +95,7 @@ func (s *Stores) WorkflowDefStore() workflow.DefStore { return &WorkflowDefStore
 func (s *Stores) AISafetyStore() aisafety.Store       { return &AISafetyStore{db: s.DB} }
 func (s *Stores) RagStore() rag.Store                 { return &RagStore{db: s.DB} }
 func (s *Stores) AgentStore() agent.Store             { return &AgentStore{db: s.DB} }
+func (s *Stores) NotifyStore() notify.Store           { return &NotifyStore{db: s.DB} }
 
 // AuditChainStore 按传入哈希器构造持久化审计链（SM3/SHA-256 由调用方
 // 依 BASALT_CRYPTO_ALGO 决定）。

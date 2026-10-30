@@ -29,6 +29,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 	"github.com/basalt-go/basalt/pkg/modules/job"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
+	"github.com/basalt-go/basalt/pkg/modules/notify"
 	"github.com/basalt-go/basalt/pkg/modules/org"
 	"github.com/basalt-go/basalt/pkg/modules/rag"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
@@ -747,3 +748,138 @@ func (rs *RoutedStores) WorkflowStore() workflow.Store       { return &RoutedWor
 func (rs *RoutedStores) WorkflowDefStore() workflow.DefStore { return &RoutedWorkflowDefStore{rs.res} }
 func (rs *RoutedStores) RagStore() rag.Store                 { return &RoutedRagStore{rs.res} }
 func (rs *RoutedStores) AgentStore() agent.Store             { return &RoutedAgentStore{rs.res} }
+func (rs *RoutedStores) NotifyStore() notify.Store           { return &RoutedNotifyStore{rs.res} }
+
+// ---------- notify ----------
+
+// RoutedNotifyStore 实现 notify.Store（请求级租户路由）。
+type RoutedNotifyStore struct{ tenantResolver }
+
+var _ notify.Store = (*RoutedNotifyStore)(nil)
+
+func (s *RoutedNotifyStore) CreateTemplate(ctx context.Context, t notify.Template) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).CreateTemplate(ctx, t)
+}
+func (s *RoutedNotifyStore) UpdateTemplate(ctx context.Context, t notify.Template) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).UpdateTemplate(ctx, t)
+}
+func (s *RoutedNotifyStore) DeleteTemplate(ctx context.Context, id string) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).DeleteTemplate(ctx, id)
+}
+func (s *RoutedNotifyStore) GetTemplateByCode(ctx context.Context, code string) (notify.Template, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return notify.Template{}, err
+	}
+	return (&NotifyStore{db: db}).GetTemplateByCode(ctx, code)
+}
+func (s *RoutedNotifyStore) ListTemplates(ctx context.Context) ([]notify.Template, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return (&NotifyStore{db: db}).ListTemplates(ctx)
+}
+func (s *RoutedNotifyStore) CreateSMTP(ctx context.Context, c notify.SMTPConfig) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).CreateSMTP(ctx, c)
+}
+func (s *RoutedNotifyStore) DeleteSMTP(ctx context.Context, id string) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).DeleteSMTP(ctx, id)
+}
+func (s *RoutedNotifyStore) ListSMTPs(ctx context.Context) ([]notify.SMTPConfig, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return (&NotifyStore{db: db}).ListSMTPs(ctx)
+}
+func (s *RoutedNotifyStore) CreateSMSChannel(ctx context.Context, c notify.SMSChannel) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).CreateSMSChannel(ctx, c)
+}
+func (s *RoutedNotifyStore) DeleteSMSChannel(ctx context.Context, id string) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).DeleteSMSChannel(ctx, id)
+}
+func (s *RoutedNotifyStore) ListSMSChannels(ctx context.Context) ([]notify.SMSChannel, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return (&NotifyStore{db: db}).ListSMSChannels(ctx)
+}
+func (s *RoutedNotifyStore) AppendLog(ctx context.Context, l notify.SendLog) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).AppendLog(ctx, l)
+}
+func (s *RoutedNotifyStore) ListLogs(ctx context.Context, channel string, offset, limit int) ([]notify.SendLog, int64, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	return (&NotifyStore{db: db}).ListLogs(ctx, channel, offset, limit)
+}
+func (s *RoutedNotifyStore) GetLog(ctx context.Context, id string) (notify.SendLog, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return notify.SendLog{}, err
+	}
+	return (&NotifyStore{db: db}).GetLog(ctx, id)
+}
+func (s *RoutedNotifyStore) CreateInbox(ctx context.Context, m notify.InboxMsg) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).CreateInbox(ctx, m)
+}
+func (s *RoutedNotifyStore) ListInbox(ctx context.Context, userID string, unreadOnly bool, offset, limit int) ([]notify.InboxMsg, int64, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	return (&NotifyStore{db: db}).ListInbox(ctx, userID, unreadOnly, offset, limit)
+}
+func (s *RoutedNotifyStore) MarkRead(ctx context.Context, id, userID string) error {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return err
+	}
+	return (&NotifyStore{db: db}).MarkRead(ctx, id, userID)
+}
+func (s *RoutedNotifyStore) UnreadCount(ctx context.Context, userID string) (int64, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return (&NotifyStore{db: db}).UnreadCount(ctx, userID)
+}
