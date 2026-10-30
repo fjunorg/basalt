@@ -11,6 +11,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/basalt-go/basalt/pkg/kernel/crypto"
 	"github.com/basalt-go/basalt/pkg/modules/audit"
 )
 
@@ -21,7 +22,13 @@ import (
 type AuditChain struct {
 	db     *gorm.DB
 	hasher audit.Hasher
-	mu     sync.Mutex
+	// altHasher 备用算法哈希器：BASALT_CRYPTO_ALGO 中途切换（如
+	// sha256→sm3）后，历史段记录仍以原算法落链。Verify 对不匹配
+	// 主算法的段尝试备用算法——历史算法段核验通过（防"算法已切换"
+	// 被误报为链断裂/篡改）；两种算法均不匹配才是真断链。Append
+	// 恒用主算法（当前配置），链因此自然形成算法分段。
+	altHasher audit.Hasher
+	mu        sync.Mutex
 }
 
 // NewAuditChain 迁移表结构并返回链实现。
@@ -29,8 +36,30 @@ func NewAuditChain(db *gorm.DB, h audit.Hasher) (*AuditChain, error) {
 	if err := db.AutoMigrate(&audit.Event{}, &audit.ChainSignature{}); err != nil {
 		return nil, err
 	}
-	return &AuditChain{db: db, hasher: h}, nil
+	c := &AuditChain{db: db, hasher: h}
+	// 补另一族算法（SM3 ↔ SHA-256）作为历史段核验 fallback。
+	switch h.Algorithm() {
+	case "SM3":
+		c.altHasher = sha256Fallback{}
+	case "SHA-256":
+		c.altHasher = sm3Fallback{}
+	}
+	return c, nil
 }
+
+type sha256Fallback struct{}
+
+func (sha256Fallback) Hash(ctx context.Context, data []byte) ([]byte, error) {
+	return crypto.NewProvider(crypto.AlgoSHA256).Hash(ctx, data)
+}
+func (sha256Fallback) Algorithm() string { return "SHA-256" }
+
+type sm3Fallback struct{}
+
+func (sm3Fallback) Hash(ctx context.Context, data []byte) ([]byte, error) {
+	return crypto.NewProvider(crypto.AlgoSM3).Hash(ctx, data)
+}
+func (sm3Fallback) Algorithm() string { return "SM3" }
 
 // 编译期接口对齐检查：链尾签名扩展。
 var _ audit.SignedChain = (*AuditChain)(nil)
@@ -82,10 +111,14 @@ func (c *AuditChain) List(ctx context.Context, module string, limit int) ([]audi
 	}
 	var out []audit.Event
 	err := q.Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 // Verify 按 Seq 升序全链校验，返回首个断点（1-based）。
+//
+// 多算法逐段核验：每段先用当前主算法重算，不匹配再试备用算法
+// （覆盖 BASALT_CRYPTO_ALGO 中途切换前的历史段）；两种均不匹配才
+// 判断裂——错误信息注明算法切换的可能形态，避免误导为篡改。
 func (c *AuditChain) Verify(ctx context.Context) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -96,18 +129,41 @@ func (c *AuditChain) Verify(ctx context.Context) (int, error) {
 	prev := ""
 	for i, e := range events {
 		if e.PrevHash != prev {
-			return i + 1, audit.ErrChainBroken
+			return i + 1, fmt.Errorf("%w at %d (prev-hash mismatch; 若 BASALT_CRYPTO_ALGO 中途切换过，历史段以原算法落链，本核验已自动兼容)", audit.ErrChainBroken, i+1)
 		}
 		digest, err := c.canonical(e)
 		if err != nil {
 			return i + 1, err
 		}
 		if digest != e.Hash {
-			return i + 1, audit.ErrChainBroken
+			// 主算法不匹配：尝试备用算法（历史段可能是切换前的算法）
+			if c.altHasher != nil {
+				if alt := c.canonicalWith(c.altHasher, e); alt == e.Hash {
+					prev = e.Hash
+					continue // 历史算法段，核验通过
+				}
+			}
+			return i + 1, fmt.Errorf("%w at %d (both %s and fallback mismatch; tamper or unknown legacy algo)", audit.ErrChainBroken, i+1, c.hasher.Algorithm())
 		}
 		prev = e.Hash
 	}
 	return 0, nil
+}
+
+// canonicalWith 以指定哈希器计算规范摘要。
+func (c *AuditChain) canonicalWith(h audit.Hasher, e audit.Event) string {
+	e.Hash = ""
+	e.Seq = 0
+	e.Time = e.Time.UTC().Truncate(time.Second)
+	b, err := json.Marshal(e)
+	if err != nil {
+		return ""
+	}
+	d, err := h.Hash(context.Background(), b)
+	if err != nil {
+		return ""
+	}
+	return hex.EncodeToString(d)
 }
 
 // canonical 与内存链一致的规范序列化。Hash 与 Seq 清零：Hash 是被
@@ -194,5 +250,5 @@ func (c *AuditChain) ListHeadSignatures(ctx context.Context, limit int) ([]audit
 	}
 	var out []audit.ChainSignature
 	err := q.Find(&out).Error
-	return out, err
+	return list(out), err
 }

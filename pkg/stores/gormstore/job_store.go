@@ -43,7 +43,7 @@ func (s *JobStore) SaveJob(_ context.Context, j job.Job) error {
 func (s *JobStore) ListJobs(_ context.Context) ([]job.Job, error) {
 	var out []job.Job
 	err := s.db.Order("id").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 // DeleteJob 删除任务（动态任务删除；运行记录随之外键无约束残留

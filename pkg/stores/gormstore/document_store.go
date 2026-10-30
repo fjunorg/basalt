@@ -50,5 +50,5 @@ func (s *DocumentStore) List(_ context.Context, creatorID string) ([]document.Do
 	}
 	var out []document.Doc
 	err := q.Find(&out).Error
-	return out, err
+	return list(out), err
 }

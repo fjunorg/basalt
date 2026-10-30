@@ -35,7 +35,7 @@ func (s *RagStore) GetKB(_ context.Context, id string) (rag.KnowledgeBase, error
 func (s *RagStore) ListKBs(_ context.Context) ([]rag.KnowledgeBase, error) {
 	var out []rag.KnowledgeBase
 	err := s.db.Order("created_at ASC").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *RagStore) UpdateKB(_ context.Context, kb rag.KnowledgeBase) error {
@@ -85,7 +85,7 @@ func (s *RagStore) GetDoc(_ context.Context, id string) (rag.Document, error) {
 func (s *RagStore) ListDocs(_ context.Context, kbID string) ([]rag.Document, error) {
 	var out []rag.Document
 	err := s.db.Where("kb_id = ?", kbID).Order("created_at ASC").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *RagStore) UpdateDoc(_ context.Context, d rag.Document) error {
@@ -140,12 +140,12 @@ func (s *RagStore) ReplaceChunks(ctx context.Context, chunks []rag.Chunk) error 
 func (s *RagStore) ListChunks(_ context.Context, docID string) ([]rag.Chunk, error) {
 	var out []rag.Chunk
 	err := s.db.Where("doc_id = ?", docID).Order("seq ASC").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 // VectorsOfKB 只取已向量化切片（embedding blob 非空）。
 func (s *RagStore) VectorsOfKB(_ context.Context, kbID string) ([]rag.Chunk, error) {
 	var out []rag.Chunk
 	err := s.db.Where("kb_id = ? AND embedding IS NOT NULL", kbID).Find(&out).Error
-	return out, err
+	return list(out), err
 }

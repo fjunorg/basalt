@@ -52,7 +52,7 @@ func (s *OrgStore) DeleteDept(_ context.Context, id string) error {
 func (s *OrgStore) ListDepts(_ context.Context) ([]org.Dept, error) {
 	var out []org.Dept
 	err := s.db.Order("sort").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *OrgStore) CreatePost(_ context.Context, p org.Post) error {
@@ -100,5 +100,5 @@ func (s *OrgStore) DeletePost(_ context.Context, id string) error {
 func (s *OrgStore) ListPosts(_ context.Context) ([]org.Post, error) {
 	var out []org.Post
 	err := s.db.Order("sort").Find(&out).Error
-	return out, err
+	return list(out), err
 }

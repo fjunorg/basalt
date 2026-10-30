@@ -55,7 +55,7 @@ func (s *SSOStore) GetClientByClientID(_ context.Context, clientID string) (iden
 func (s *SSOStore) ListClients(_ context.Context) ([]identity.Client, error) {
 	var out []identity.Client
 	err := s.db.Order("created_at").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *SSOStore) UpdateClient(_ context.Context, c identity.Client) error {

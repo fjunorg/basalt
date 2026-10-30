@@ -72,7 +72,7 @@ func (s *AISafetyStore) DeleteTerm(_ context.Context, id string) error {
 func (s *AISafetyStore) ListTerms(_ context.Context) ([]aisafety.Term, error) {
 	var out []aisafety.Term
 	err := s.db.Order("word").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *AISafetyStore) GetPolicy(_ context.Context, tenantID string) (aisafety.Policy, error) {
@@ -94,7 +94,7 @@ func (s *AISafetyStore) SetPolicy(_ context.Context, p aisafety.Policy) error {
 func (s *AISafetyStore) ListPolicies(_ context.Context) ([]aisafety.Policy, error) {
 	var out []aisafety.Policy
 	err := s.db.Order("tenant_id").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *AISafetyStore) GetSettings(_ context.Context) (aisafety.Settings, error) {

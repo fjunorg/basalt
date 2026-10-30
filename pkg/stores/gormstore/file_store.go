@@ -47,5 +47,5 @@ func (s *FileStore) Get(_ context.Context, id string) (file.Meta, error) {
 func (s *FileStore) List(_ context.Context) ([]file.Meta, error) {
 	var out []file.Meta
 	err := s.db.Order("created_at DESC").Find(&out).Error
-	return out, err
+	return list(out), err
 }

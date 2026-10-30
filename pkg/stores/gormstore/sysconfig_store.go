@@ -60,7 +60,7 @@ func (s *SysConfigStore) Delete(_ context.Context, id string) error {
 func (s *SysConfigStore) List(_ context.Context) ([]sysconfig.Item, error) {
 	var out []sysconfig.Item
 	err := s.db.Order("`key`").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *SysConfigStore) GetByKey(_ context.Context, key string) (sysconfig.Item, error) {

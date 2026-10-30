@@ -147,13 +147,13 @@ func (s *WorkflowStore) ListByCreator(_ context.Context, userID string) ([]workf
 	var out []workflow.Instance
 	err := s.db.Where("creator_id = ?", userID).
 		Order("created_at DESC").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *WorkflowStore) ListAll(_ context.Context) ([]workflow.Instance, error) {
 	var out []workflow.Instance
 	err := s.db.Order("created_at DESC").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func loadActions(db *gorm.DB, instanceID string) ([]workflow.Action, error) {
@@ -276,5 +276,5 @@ func (s *WorkflowDefStore) GetDefByKey(_ context.Context, key string) (workflow.
 func (s *WorkflowDefStore) ListDefs(_ context.Context) ([]workflow.Definition, error) {
 	var out []workflow.Definition
 	err := s.db.Order("`key`").Find(&out).Error
-	return out, err
+	return list(out), err
 }

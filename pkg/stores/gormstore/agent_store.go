@@ -34,7 +34,7 @@ func (s *AgentStore) GetDef(_ context.Context, id string) (agent.Definition, err
 func (s *AgentStore) ListDefs(_ context.Context) ([]agent.Definition, error) {
 	var out []agent.Definition
 	err := s.db.Order("created_at ASC").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *AgentStore) UpdateDef(_ context.Context, d agent.Definition) error {
@@ -109,7 +109,7 @@ func (s *AgentStore) UpdateRun(_ context.Context, r agent.Run) error {
 func (s *AgentStore) ListRuns(_ context.Context, agentID string) ([]agent.Run, error) {
 	var out []agent.Run
 	err := s.db.Where("agent_id = ?", agentID).Order("started_at DESC").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *AgentStore) AppendMsg(_ context.Context, msg agent.RunMessage) error {
@@ -120,5 +120,5 @@ func (s *AgentStore) AppendMsg(_ context.Context, msg agent.RunMessage) error {
 func (s *AgentStore) ListMsgs(_ context.Context, runID string) ([]agent.RunMessage, error) {
 	var out []agent.RunMessage
 	err := s.db.Where("run_id = ?", runID).Order("seq ASC").Find(&out).Error
-	return out, err
+	return list(out), err
 }

@@ -47,7 +47,7 @@ func (s *RoleStore) GetByCode(_ context.Context, code string) (identity.Role, er
 func (s *RoleStore) List(_ context.Context) ([]identity.Role, error) {
 	var out []identity.Role
 	err := s.db.Order("code").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *RoleStore) Update(_ context.Context, r identity.Role) error {
@@ -113,7 +113,7 @@ func (s *TenantStore) Get(_ context.Context, id string) (tenant.Tenant, error) {
 func (s *TenantStore) List(_ context.Context) ([]tenant.Tenant, error) {
 	var out []tenant.Tenant
 	err := s.db.Order("code").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *TenantStore) Update(_ context.Context, t tenant.Tenant) error {

@@ -60,5 +60,5 @@ func (s *NoticeStore) List(_ context.Context, publishedOnly bool) ([]notice.Noti
 	}
 	var out []notice.Notice
 	err := q.Find(&out).Error
-	return out, err
+	return list(out), err
 }

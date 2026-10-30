@@ -58,7 +58,7 @@ func (s *MenuStore) Get(_ context.Context, id string) (menu.Menu, error) {
 func (s *MenuStore) List(_ context.Context) ([]menu.Menu, error) {
 	var out []menu.Menu
 	err := s.db.Order("sort, id").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *MenuStore) CountByPath(_ context.Context, path, excludeID string) (int64, error) {

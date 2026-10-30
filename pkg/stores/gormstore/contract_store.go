@@ -51,7 +51,7 @@ func (s *ContractStore) List(_ context.Context, creatorID string) ([]contract.Co
 	}
 	var out []contract.Contract
 	err := q.Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 // ListExpiring 返回处于生效态、到期时间落在 before 之前的合同。
@@ -62,5 +62,5 @@ func (s *ContractStore) ListExpiring(_ context.Context, before time.Time) ([]con
 	err := s.db.Where("status = ? AND expire_date > ? AND expire_date < ?",
 		contract.StActive, time.Time{}, before).
 		Order("expire_date").Find(&out).Error
-	return out, err
+	return list(out), err
 }

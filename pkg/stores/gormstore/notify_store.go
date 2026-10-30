@@ -64,7 +64,7 @@ func (s *NotifyStore) GetTemplateByCode(_ context.Context, code string) (notify.
 func (s *NotifyStore) ListTemplates(_ context.Context) ([]notify.Template, error) {
 	var out []notify.Template
 	err := s.db.Order("code").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *NotifyStore) CreateSMTP(_ context.Context, c notify.SMTPConfig) error {
@@ -92,7 +92,7 @@ func (s *NotifyStore) DeleteSMTP(_ context.Context, id string) error {
 func (s *NotifyStore) ListSMTPs(_ context.Context) ([]notify.SMTPConfig, error) {
 	var out []notify.SMTPConfig
 	err := s.db.Order("name").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *NotifyStore) CreateSMSChannel(_ context.Context, c notify.SMSChannel) error {
@@ -120,7 +120,7 @@ func (s *NotifyStore) DeleteSMSChannel(_ context.Context, id string) error {
 func (s *NotifyStore) ListSMSChannels(_ context.Context) ([]notify.SMSChannel, error) {
 	var out []notify.SMSChannel
 	err := s.db.Order("name").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *NotifyStore) AppendLog(_ context.Context, l notify.SendLog) error {

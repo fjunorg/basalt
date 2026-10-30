@@ -56,7 +56,7 @@ func (s *FinanceStore) ListExpenses(_ context.Context, applicantID string) ([]fi
 	}
 	var out []finance.Expense
 	err := q.Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *FinanceStore) CreateInvoice(_ context.Context, iv finance.Invoice) error {
@@ -73,7 +73,7 @@ func (s *FinanceStore) CreateInvoice(_ context.Context, iv finance.Invoice) erro
 func (s *FinanceStore) ListInvoices(_ context.Context) ([]finance.Invoice, error) {
 	var out []finance.Invoice
 	err := s.db.Order("created_at").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *FinanceStore) SetBudget(_ context.Context, b finance.Budget) error {
@@ -116,7 +116,7 @@ func (s *FinanceStore) AddBudgetUsed(_ context.Context, deptID, period string, d
 func (s *FinanceStore) ListBudgets(_ context.Context) ([]finance.Budget, error) {
 	var out []finance.Budget
 	err := s.db.Order("dept_id, period").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *FinanceStore) CreatePayment(_ context.Context, p finance.Payment) error {
@@ -139,5 +139,5 @@ func (s *FinanceStore) UpdatePayment(_ context.Context, p finance.Payment) error
 func (s *FinanceStore) ListPayments(_ context.Context) ([]finance.Payment, error) {
 	var out []finance.Payment
 	err := s.db.Order("created_at").Find(&out).Error
-	return out, err
+	return list(out), err
 }

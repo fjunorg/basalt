@@ -145,7 +145,7 @@ func (s *UserStore) GetByUsername(_ context.Context, username string) (identity.
 func (s *UserStore) List(_ context.Context) ([]identity.User, error) {
 	var out []identity.User
 	err := s.db.Order("created_at").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 // ListByTenant 列出指定租户的用户；tenantID 为空串表示平台级用户
@@ -153,7 +153,7 @@ func (s *UserStore) List(_ context.Context) ([]identity.User, error) {
 func (s *UserStore) ListByTenant(_ context.Context, tenantID string) ([]identity.User, error) {
 	var out []identity.User
 	err := s.db.Where("tenant_id = ?", tenantID).Order("created_at").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func (s *UserStore) UpdateStatus(_ context.Context, id, status string) error {

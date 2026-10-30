@@ -83,7 +83,7 @@ func dictDeleteType(db *gorm.DB, id string) error {
 func dictListTypes(db *gorm.DB) ([]dict.Type, error) {
 	var out []dict.Type
 	err := db.Order("code").Find(&out).Error
-	return out, err
+	return list(out), err
 }
 
 func dictCreateData(db *gorm.DB, d dict.Data) error {
@@ -118,5 +118,5 @@ func dictDeleteData(db *gorm.DB, id string) error {
 func dictListDataByType(db *gorm.DB, typeCode string) ([]dict.Data, error) {
 	var out []dict.Data
 	err := db.Where("type_code = ?", typeCode).Order("sort").Find(&out).Error
-	return out, err
+	return list(out), err
 }
