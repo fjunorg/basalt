@@ -1,7 +1,8 @@
 // basalt 是框架的统一 CLI。
 //
-// 子命令：serve（启动服务）、version、new module（生成模块脚手架）。
-// 后续：migrate（升级迁移）、secure --check（等保基线自查）、seed（数据工厂）。
+// 子命令：serve（启动服务）、version、new module（生成模块脚手架）、
+// secure --check（等保基线自查）。
+// 后续：migrate（升级迁移）、seed（数据工厂）。
 package main
 
 import (
@@ -26,7 +27,7 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: false,
 	}
-	root.AddCommand(newServeCmd(), newVersionCmd(), newNewCmd())
+	root.AddCommand(newServeCmd(), newVersionCmd(), newNewCmd(), newSecureCmd())
 	return root
 }
 
