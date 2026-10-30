@@ -114,6 +114,38 @@ export function hasPerm(perms: string[] | null | undefined, want: string): boole
   return (perms || []).some((p) => p === '*' || p === want || (p.endsWith('*') && want.startsWith(p.slice(0, -1))))
 }
 
+// ===== 菜单模块（契约 menu-api-contract.md v1）=====
+
+// §1 MenuNode（children 仅 /me 树返回）
+export interface MenuNode {
+  id: string
+  parent_id: string
+  name: string
+  path: string
+  icon?: string
+  perm?: string
+  sort: number
+  enabled: boolean
+  children?: MenuNode[]
+}
+
+// §2.1 GET /api/v1/menus/me 响应
+export interface MenusMe {
+  menus: MenuNode[]
+  perms: string[]
+  source: string
+}
+
+// §2.2 GET /api/v1/menus 全量列表项（扁平，含 role_count）
+export interface MenuRow extends Omit<MenuNode, 'children'> {
+  role_count?: number
+}
+
+export async function fetchMenusMe(): Promise<MenusMe | null> {
+  // null = 拉取失败（网络/404 模块未装配）→ 调用方回退静态菜单
+  return await api<MenusMe>('/api/v1/menus/me').catch(() => null)
+}
+
 // ===== Agent 模块（契约 agent-api-contract.md v1）=====
 
 // §2.5 Definition

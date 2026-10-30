@@ -53,6 +53,9 @@ const routes: RouteRecordRaw[] = [
       // （定义管理页级 agent:read，写操作按钮级 agent:manage；运行页 agent:run）
       { path: 'agent-defs', component: () => import('./views/AgentDefs.vue'), meta: { title: 'Agent 管理', perms: ['agent:read'] } },
       { path: 'agent-run', component: () => import('./views/AgentRun.vue'), meta: { title: 'Agent 运行', perms: ['agent:run'] } },
+      // 菜单管理（v1.6.0 动态菜单配套）：权限点依据 menu-api-contract.md §2.2；
+      // 入口在 Layout 固定渲染（不经动态菜单树，防未播种时无入口死锁）
+      { path: 'system/menus', component: () => import('./views/MenuMgmt.vue'), meta: { title: '菜单管理', perms: ['system:menu:list'] } },
       { path: 'forbidden', component: () => import('./views/Forbidden.vue'), meta: { title: '无权访问' } },
     ],
   },
