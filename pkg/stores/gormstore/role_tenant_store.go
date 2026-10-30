@@ -51,13 +51,21 @@ func (s *RoleStore) List(_ context.Context) ([]identity.Role, error) {
 }
 
 func (s *RoleStore) Update(_ context.Context, r identity.Role) error {
-	// permissions 列手动序列化（map 更新不走 serializer，见 UserStore.AssignRoles）。
+	// permissions/dept_ids 列手动序列化（map 更新不走 serializer，
+	// 见 UserStore.AssignRoles）。data_scope 为普通列直写。
 	b, err := json.Marshal(r.Permissions)
 	if err != nil {
 		return err
 	}
+	d, err := json.Marshal(r.DeptIDs)
+	if err != nil {
+		return err
+	}
 	res := s.db.Model(&identity.Role{}).Where("id = ?", r.ID).
-		Updates(map[string]any{"code": r.Code, "name": r.Name, "permissions": string(b)})
+		Updates(map[string]any{
+			"code": r.Code, "name": r.Name, "permissions": string(b),
+			"data_scope": r.DataScope, "dept_ids": string(d),
+		})
 	if res.Error != nil {
 		return res.Error
 	}

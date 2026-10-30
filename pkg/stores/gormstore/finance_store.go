@@ -101,7 +101,7 @@ func (s *FinanceStore) AddBudgetUsed(_ context.Context, deptID, period string, d
 	res := s.db.Model(&finance.Budget{}).
 		Where("dept_id = ? AND period = ?", deptID, period).
 		Updates(map[string]any{
-			"used":   gorm.Expr("used + ?", delta),
+			"used":    gorm.Expr("used + ?", delta),
 			"updated": gorm.Expr("CURRENT_TIMESTAMP"),
 		})
 	if res.Error != nil {

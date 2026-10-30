@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/dataperm"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 )
@@ -228,9 +229,11 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 
 	auth := m.facade.Auth
 	req := m.facade.Require
+	scope := m.deptScope() // 数据权限注入（声明式接入）
 	g := a.Router().Group("/api/v1/org")
 
-	g.Handle(http.MethodGet, "/depts/tree", auth(req(PermDeptList, m.deptTree)))
+	// 部门树按数据范围裁剪（org 是树形数据的接入范式示例）
+	g.Handle(http.MethodGet, "/depts/tree", auth(req(PermDeptList, scope.Inject(m.deptTree))))
 	g.Handle(http.MethodPost, "/depts", auth(req(PermDeptManage, m.createDept)))
 	g.Handle(http.MethodPatch, "/depts/{id}", auth(req(PermDeptManage, m.updateDept)))
 	g.Handle(http.MethodDelete, "/depts/{id}", auth(req(PermDeptManage, m.deleteDept)))
@@ -248,11 +251,50 @@ func (*Module) Stop(context.Context) error  { return nil }
 // Store 供其他模块（数据权限）取用。
 func (m *Module) Store() Store { return m.store }
 
+// SubtreeIDs 实现 identity.DeptResolver：部门及全部子孙（数据权限
+// "本部门及以下"档的子树展开）。
+func (m *Module) SubtreeIDs(ctx context.Context, deptID string) []string {
+	depts, err := m.store.ListDepts(ctx)
+	if err != nil {
+		return []string{deptID}
+	}
+	children := map[string][]string{}
+	for _, d := range depts {
+		children[d.ParentID] = append(children[d.ParentID], d.ID)
+	}
+	var out []string
+	var walk func(id string)
+	walk = func(id string) {
+		out = append(out, id)
+		for _, c := range children[id] {
+			walk(c)
+		}
+	}
+	walk(deptID)
+	return out
+}
+
+// deptScope 数据权限解析器（Init 期构造，接入范式第一步）。
+func (m *Module) deptScope() *identity.DataScopeResolver {
+	return identity.NewDataScopeResolver(m.facade, m)
+}
+
 func (m *Module) deptTree(w http.ResponseWriter, r *http.Request) {
 	depts, err := m.store.ListDepts(r.Context())
 	if err != nil {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
+	}
+	// 数据权限裁剪（接入范式第二步：消费 ctx 中的 Scope；未注入
+	// 端点不过滤保持既有行为）。self 档对树数据无可见部门 → 空树。
+	if sc, ok := dataperm.FromContext(r.Context()); ok {
+		kept := depts[:0]
+		for _, d := range depts {
+			if sc.VisibleDept(d.ID) {
+				kept = append(kept, d)
+			}
+		}
+		depts = kept
 	}
 	web.OK(w, BuildTree(depts))
 }

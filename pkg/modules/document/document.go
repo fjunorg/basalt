@@ -17,9 +17,11 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/dataperm"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/audit"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
+	"github.com/basalt-go/basalt/pkg/modules/org"
 	"github.com/basalt-go/basalt/pkg/modules/workflow"
 )
 
@@ -68,6 +70,7 @@ type Doc struct {
 	Content        string    `json:"content" gorm:"type:text"`
 	Status         string    `json:"status" gorm:"size:16;index"`
 	CreatorID      string    `json:"creator_id" gorm:"size:40;index"`
+	DeptID         string    `json:"dept_id,omitempty" gorm:"size:40;index"` // 数据权限维度：创建时取拟稿人部门
 	WorkflowInstID string    `json:"workflow_instance_id,omitempty" gorm:"size:40"`
 	CreatedAt      time.Time `json:"created_at"`
 }
@@ -200,9 +203,17 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 
 	auth := m.facade.Auth
 	req := m.facade.Require
+	// 数据权限：可选获取 org 部门树（缺失时子树档降级本部门）。
+	var deptResolver identity.DeptResolver
+	if mod, ok := a.Registry().Get("org"); ok {
+		if orgM, ok := mod.(*org.Module); ok {
+			deptResolver = orgM
+		}
+	}
+	dp := identity.NewDataScopeResolver(m.facade, deptResolver)
 	g := a.Router().Group("/api/v1/documents")
-	g.Handle(http.MethodPost, "", auth(m.create)) // 拟稿/登记：登录即可
-	g.Handle(http.MethodGet, "", auth(m.list))    // mine；all 需 read
+	g.Handle(http.MethodPost, "", auth(m.create))         // 拟稿/登记：登录即可
+	g.Handle(http.MethodGet, "", auth(dp.Inject(m.list))) // mine；all 需 read + 数据范围
 	g.Handle(http.MethodPost, "/{id}/submit", auth(m.submit))
 	g.Handle(http.MethodPost, "/{id}/archive", auth(req(PermManage, m.archive)))
 	return nil
@@ -288,7 +299,8 @@ func (m *Module) create(w http.ResponseWriter, r *http.Request) {
 	d := Doc{
 		ID: newID(), DocNum: req.DocNum, Type: req.Type, Title: req.Title,
 		Security: req.Security, Urgency: req.Urgency, Correspond: req.Correspond,
-		Content: req.Content, Status: StDraft, CreatorID: u.ID, CreatedAt: time.Now().UTC(),
+		Content: req.Content, Status: StDraft, CreatorID: u.ID, DeptID: u.DeptID,
+		CreatedAt: time.Now().UTC(),
 	}
 	if err := m.store.Create(r.Context(), d); err != nil {
 		web.Err(w, http.StatusInternalServerError, "internal error")
@@ -316,6 +328,16 @@ func (m *Module) list(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
+	}
+	// 数据权限裁剪：all 分支按部门 + 本人叠加过滤（mine 天然本人）
+	if dp, ok := dataperm.FromContext(r.Context()); ok && scope == "" {
+		kept := list[:0]
+		for _, d := range list {
+			if dp.VisibleRow(d.DeptID, d.CreatorID) {
+				kept = append(kept, d)
+			}
+		}
+		list = kept
 	}
 	web.OK(w, list)
 }

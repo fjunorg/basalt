@@ -3,12 +3,14 @@ package identity
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/basalt-go/basalt/pkg/kernel/dataperm"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 )
 
@@ -177,6 +179,25 @@ type createRoleReq struct {
 	Code        string   `json:"code"`
 	Name        string   `json:"name"`
 	Permissions []string `json:"permissions"`
+	DataScope   *string  `json:"data_scope"`
+	DeptIDs     []string `json:"dept_ids"`
+}
+
+// applyDataScope 应用并校验数据范围声明（创建/更新共用）。
+func applyDataScope(cur, scope string, deptIDs []string, has bool) (string, []string, error) {
+	if !has {
+		return cur, nil, nil // 未传不动
+	}
+	if scope == "" {
+		scope = "all"
+	}
+	if !dataperm.ValidScope(scope) {
+		return "", nil, fmt.Errorf("invalid data_scope (want all|dept|dept_and_below|self|custom)")
+	}
+	if scope != dataperm.ScopeCustom {
+		deptIDs = nil
+	}
+	return scope, deptIDs, nil
 }
 
 func (h *Handler) createRole(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +210,13 @@ func (h *Handler) createRole(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusBadRequest, "role code (a-z, 0-9, -) and name are required")
 		return
 	}
-	role := Role{ID: NewUserID(), Code: req.Code, Name: req.Name, Permissions: req.Permissions}
+	scope, deptIDs, err := applyDataScope("all", deref(req.DataScope), req.DeptIDs, req.DataScope != nil)
+	if err != nil {
+		web.Err(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	role := Role{ID: NewUserID(), Code: req.Code, Name: req.Name, Permissions: req.Permissions,
+		DataScope: scope, DeptIDs: deptIDs}
 	if err := h.f.roles.Create(r.Context(), role); err != nil {
 		if errors.Is(err, ErrRoleCodeTaken) {
 			web.Err(w, http.StatusConflict, "role code already taken")
@@ -200,6 +227,13 @@ func (h *Handler) createRole(w http.ResponseWriter, r *http.Request) {
 	}
 	h.f.audit(r, "role.created", "role", req.Code, "role_id", role.ID)
 	web.Created(w, role)
+}
+
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }
 
 func (h *Handler) listRoles(w http.ResponseWriter, r *http.Request) {
@@ -214,6 +248,8 @@ func (h *Handler) listRoles(w http.ResponseWriter, r *http.Request) {
 type updateRoleReq struct {
 	Name        string   `json:"name"`
 	Permissions []string `json:"permissions"`
+	DataScope   *string  `json:"data_scope"`
+	DeptIDs     []string `json:"dept_ids"`
 }
 
 func (h *Handler) updateRole(w http.ResponseWriter, r *http.Request) {
@@ -236,6 +272,14 @@ func (h *Handler) updateRole(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Permissions != nil {
 		role.Permissions = req.Permissions
+	}
+	scope, deptIDs, err := applyDataScope(role.DataScope, deref(req.DataScope), req.DeptIDs, req.DataScope != nil)
+	if err != nil {
+		web.Err(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.DataScope != nil {
+		role.DataScope, role.DeptIDs = scope, deptIDs
 	}
 	if err := h.f.roles.Update(r.Context(), role); err != nil {
 		web.Err(w, http.StatusInternalServerError, "internal error")

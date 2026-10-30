@@ -29,11 +29,18 @@ var (
 
 // Role 是 RBAC 角色。Permissions 为权限点列表，支持 "*"、前缀通配
 // （如 "identity:user:*"）与精确匹配。
+//
+// DataScope 是数据权限档位（pkg/kernel/dataperm，角色软范围）：
+// all（默认，向后兼容）| dept | dept_and_below | self | custom；
+// custom 档的部门集经 DeptIDs 声明。功能权限（能做什么）与数据
+// 范围（能看多少）正交。
 type Role struct {
 	ID          string   `json:"id" gorm:"primaryKey;size:40"`
 	Code        string   `json:"code" gorm:"uniqueIndex;size:64"`
 	Name        string   `json:"name" gorm:"size:128"`
 	Permissions []string `json:"permissions" gorm:"serializer:json"`
+	DataScope   string   `json:"data_scope,omitempty" gorm:"size:16"`
+	DeptIDs     []string `json:"dept_ids,omitempty" gorm:"serializer:json"`
 }
 
 // RoleStore 抽象角色持久化，语义与 UserStore 对齐（内存实现先行，

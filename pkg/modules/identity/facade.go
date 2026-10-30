@@ -1,6 +1,7 @@
 package identity
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -101,6 +102,22 @@ func (f *Facade) permissionsOf(r *http.Request, u User) ([]string, error) {
 			return nil, err
 		}
 		out = append(out, role.Permissions...)
+	}
+	return out, nil
+}
+
+// RolesOf 返回用户全部有效角色（数据权限解析用；角色缺失跳过）。
+func (f *Facade) RolesOf(ctx context.Context, u User) ([]Role, error) {
+	var out []Role
+	for _, rid := range u.RoleIDs {
+		role, err := f.roles.Get(ctx, rid)
+		if err != nil {
+			if errors.Is(err, ErrRoleNotFound) {
+				continue
+			}
+			return nil, err
+		}
+		out = append(out, role)
 	}
 	return out, nil
 }

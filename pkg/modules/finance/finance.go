@@ -17,9 +17,11 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/dataperm"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/audit"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
+	"github.com/basalt-go/basalt/pkg/modules/org"
 	"github.com/basalt-go/basalt/pkg/modules/workflow"
 )
 
@@ -353,10 +355,19 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 
 	auth := m.facade.Auth
 	req := m.facade.Require
+	// 数据权限（角色软范围）：可选获取 org 部门树（缺失时"本部门及
+	// 以下"降级为本部门），all 列表分支叠加范围裁剪。
+	var deptResolver identity.DeptResolver
+	if mod, ok := a.Registry().Get("org"); ok {
+		if orgM, ok := mod.(*org.Module); ok {
+			deptResolver = orgM
+		}
+	}
+	dp := identity.NewDataScopeResolver(m.facade, deptResolver)
 	g := a.Router().Group("/api/v1/finance")
 
 	g.Handle(http.MethodPost, "/expenses", auth(m.createExpense))             // 申请类：登录即可
-	g.Handle(http.MethodGet, "/expenses", auth(m.listExpenses))               // mine；all 需 list 权限
+	g.Handle(http.MethodGet, "/expenses", auth(dp.Inject(m.listExpenses)))    // mine；all 需 list 权限 + 数据范围
 	g.Handle(http.MethodPost, "/expenses/{id}/submit", auth(m.submitExpense)) // 申请类：仅本人
 
 	g.Handle(http.MethodGet, "/invoices", auth(req(PermInvoice, m.listInvoices)))
@@ -470,6 +481,17 @@ func (m *Module) listExpenses(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
+	}
+	// 数据权限裁剪：all 分支按有效范围过滤（部门 + 本人叠加语义）；
+	// mine 分支天然已是本人数据，无需裁剪。
+	if dp, ok := dataperm.FromContext(r.Context()); ok && scope == "" {
+		kept := list[:0]
+		for _, e := range list {
+			if dp.VisibleRow(e.DeptID, e.ApplicantID) {
+				kept = append(kept, e)
+			}
+		}
+		list = kept
 	}
 	web.OK(w, list)
 }
