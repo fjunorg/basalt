@@ -87,6 +87,7 @@ func newServeCmd() *cobra.Command {
 			var finM *finance.Module
 			var docM *document.Module
 			var conM *contract.Module
+			var wfM *workflow.Module
 			switch cfg.Storage {
 			case "sqlite":
 				dsn := cfg.DBDSN
@@ -118,6 +119,7 @@ func newServeCmd() *cobra.Command {
 				finM = finance.NewWithStore(st.FinanceStore())
 				docM = document.NewWithStore(st.DocumentStore())
 				conM = contract.NewWithStore(st.ContractStore())
+				wfM = workflow.NewWithStores(st.WorkflowStore(), st.WorkflowDefStore())
 			case "postgres", "opengauss":
 				// openGauss 走 postgres 协议方言；驱动（gorm.io/driver/
 				// postgres 或信创社区驱动）接线后在此 OpenDB 注入即可，
@@ -133,6 +135,7 @@ func newServeCmd() *cobra.Command {
 				notM = notice.New()
 				fileM = file.New(localStorage)
 				jobM = job.New(a.Logger())
+				wfM = workflow.New()
 				finM = finance.New()
 				docM = document.New()
 				conM = contract.New()
@@ -147,7 +150,7 @@ func newServeCmd() *cobra.Command {
 				idm, tnt, adm,
 				orgM, dictM, sysM, notM,
 				fileM, jobM,
-				workflow.New(), finM, docM, conM, gw,
+				wfM, finM, docM, conM, gw,
 			} {
 				if err := a.Registry().Register(m); err != nil {
 					return err
