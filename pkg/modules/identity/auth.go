@@ -71,3 +71,9 @@ func UserIDFrom(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(userIDKey).(string)
 	return id, ok
 }
+
+// WithUserID 把用户 ID 注入上下文（复用 AuthMiddleware 的注入语义，
+// 供测试与非 HTTP 链路构造等价上下文，如租户路由 store 的解析）。
+func WithUserID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, userIDKey, id)
+}

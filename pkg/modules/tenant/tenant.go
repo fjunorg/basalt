@@ -55,7 +55,11 @@ type Tenant struct {
 	Name          string    `json:"name" gorm:"size:128"`
 	Status        string    `json:"status" gorm:"size:16;index"`
 	IsolationMode string    `json:"isolation_mode" gorm:"size:32"`
-	CreatedAt     time.Time `json:"created_at"`
+	// DBRef 是 dedicated-db 模式下租户库的引用名（如 "gov-db"），
+	// 实际连接串经环境变量 BASALT_TENANT_DSN_<REF大写> 提供——
+	// 凭据不落库，见 docs/tenant-isolation.md。其余模式留空。
+	DBRef     string    `json:"db_ref,omitempty" gorm:"size:64"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // TenantStore 抽象租户持久化（内存实现先行，GORM + 国产数据库方言随后）。
@@ -182,6 +186,7 @@ type createTenantReq struct {
 	Code          string `json:"code"`
 	Name          string `json:"name"`
 	IsolationMode string `json:"isolation_mode"`
+	DBRef         string `json:"db_ref"` // dedicated-db 模式下的库引用名
 }
 
 func (m *Module) createTenant(w http.ResponseWriter, r *http.Request) {
@@ -201,9 +206,18 @@ func (m *Module) createTenant(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusBadRequest, "isolation_mode must be shared-schema, shared-db or dedicated-db")
 		return
 	}
+	if req.DBRef != "" && req.IsolationMode != IsolationDedicatedDB {
+		web.Err(w, http.StatusBadRequest, "db_ref only applies to dedicated-db isolation")
+		return
+	}
+	if req.IsolationMode == IsolationDedicatedDB && req.DBRef == "" {
+		web.Err(w, http.StatusBadRequest, "db_ref is required for dedicated-db isolation")
+		return
+	}
 	t := Tenant{
 		ID: NewTenantID(), Code: req.Code, Name: req.Name,
-		Status: "active", IsolationMode: req.IsolationMode, CreatedAt: time.Now().UTC(),
+		Status: "active", IsolationMode: req.IsolationMode, DBRef: req.DBRef,
+		CreatedAt: time.Now().UTC(),
 	}
 	if err := m.store.Create(r.Context(), t); err != nil {
 		if errors.Is(err, ErrCodeTaken) {
