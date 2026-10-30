@@ -77,7 +77,7 @@ func newServeCmd() *cobra.Command {
 			var idm *identity.Module
 			var tnt *tenant.Module
 			var adm *audit.Module
-			var gw *gateway.Module = gateway.New()
+			var gw = gateway.New()
 			var orgM *org.Module
 			var dictM *dict.Module
 			var sysM *sysconfig.Module
@@ -139,7 +139,7 @@ func newServeCmd() *cobra.Command {
 			}
 
 			// OpenAI 兼容提供方装配（私有化一等公民）：
-			// BASALT_AI_PROVIDER_URL/KEY/MODEL，如 vLLM/Ollama/Qwen/GLM 端点。
+			// BASALT_AI_PROVIDER_URL/NAME/KEY，如 vLLM/Ollama/Qwen/GLM 端点。
 			if u := os.Getenv("BASALT_AI_PROVIDER_URL"); u != "" {
 				gw.RegisterProvider(os.Getenv("BASALT_AI_PROVIDER_NAME"), u, os.Getenv("BASALT_AI_PROVIDER_KEY"))
 			}

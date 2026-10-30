@@ -30,11 +30,6 @@ type Message struct {
 	Content string `json:"content"`
 }
 
-type chatCompletionsReq struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-}
-
 type chatCompletionsResp struct {
 	Choices []struct {
 		Message struct {

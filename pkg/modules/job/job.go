@@ -5,8 +5,6 @@ package job
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -252,12 +250,6 @@ func itoa(n int) string {
 func fmtInt(n int) string {
 	b, _ := json.Marshal(n)
 	return string(b)
-}
-
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
 }
 
 type Module struct {

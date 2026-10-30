@@ -23,7 +23,6 @@ type Store interface {
 type Manager struct {
 	store Store
 	deflt int64
-	mu    sync.RWMutex
 	now   func() time.Time
 }
 
