@@ -44,6 +44,10 @@ const routes: RouteRecordRaw[] = [
       { path: 'approvals', component: () => import('./views/Approvals.vue'), meta: { title: '审批中心' } },
       { path: 'audit', component: () => import('./views/Audit.vue'), meta: { title: '审计链', perms: ['audit:read'] } },
       { path: 'ai', component: () => import('./views/AiConsole.vue'), meta: { title: 'AI 控制台' } },
+      // Agent 控制台（v1.3.0）：权限点待 pkg/modules/agent 落地后以
+      // identity 侧实际常量接入 meta.perms（禁止臆造），当前登录即可访问
+      { path: 'agent-defs', component: () => import('./views/AgentDefs.vue'), meta: { title: 'Agent 管理' } },
+      { path: 'agent-run', component: () => import('./views/AgentRun.vue'), meta: { title: 'Agent 运行' } },
       { path: 'forbidden', component: () => import('./views/Forbidden.vue'), meta: { title: '无权访问' } },
     ],
   },
