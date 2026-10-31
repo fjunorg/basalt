@@ -51,6 +51,12 @@ func (f *Facade) Auth(next http.HandlerFunc) http.HandlerFunc {
 	return f.issuer.AuthMiddleware(next)
 }
 
+// ParseUserID 验签提取请求者用户 ID（无效/缺失返回空）。
+// 供外层采集中间件（oplog）还原请求身份（完整验签，非裸解析）。
+func (f *Facade) ParseUserID(r *http.Request) string {
+	return f.issuer.ParseUserID(r)
+}
+
 // Require 是权限点校验中间件，必须置于 Auth 之后。
 // 无权限返回 403（区别于未认证的 401），事件计入审计日志。
 func (f *Facade) Require(perm string, next http.HandlerFunc) http.HandlerFunc {

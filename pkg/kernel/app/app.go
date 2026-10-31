@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/basalt-go/basalt/pkg/kernel/config"
@@ -23,6 +24,9 @@ type App struct {
 	logger *slog.Logger
 	router web.Router
 	reg    *Registry
+
+	handlerMW []func(http.Handler) http.Handler // 全局处理器包装链（Run 时叠加）
+	mwMu      sync.Mutex
 }
 
 func New(cfg *config.Config) *App {
@@ -44,6 +48,27 @@ func (a *App) Config() *config.Config { return a.cfg }
 func (a *App) Logger() *slog.Logger   { return a.logger }
 func (a *App) Registry() *Registry    { return a.reg }
 func (a *App) Router() web.Router     { return a.router }
+
+// UseHandler 注册全局处理器包装（覆盖全部 HTTP 请求，含未匹配路由）。
+// 语义：先注册者在链外层（与路由注册顺序无关，Run 时统一叠加）；
+// 须在 Run 之前注册。典型用途：oplog 操作日志采集中间件。
+func (a *App) UseHandler(mw func(http.Handler) http.Handler) {
+	a.mwMu.Lock()
+	defer a.mwMu.Unlock()
+	a.handlerMW = append(a.handlerMW, mw)
+}
+
+// wrapHandler 叠加全部注册的处理器包装（外层→内层：先注册先包裹）。
+func (a *App) wrapHandler(h http.Handler) http.Handler {
+	a.mwMu.Lock()
+	mws := make([]func(http.Handler) http.Handler, len(a.handlerMW))
+	copy(mws, a.handlerMW)
+	a.mwMu.Unlock()
+	for i := len(mws) - 1; i >= 0; i-- {
+		h = mws[i](h)
+	}
+	return h
+}
 
 // ModulesInfo 返回全部已注册模块的自描述元信息（拓扑序）。
 // 供平台 API 暴露给前端做动态菜单与权限对账。
@@ -85,7 +110,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	srv := &http.Server{
 		Addr:    a.cfg.Addr,
-		Handler: observ.HTTPHandler(a.router.Handler(), a.cfg.Name),
+		Handler: observ.HTTPHandler(a.wrapHandler(a.router.Handler()), a.cfg.Name),
 	}
 
 	initCtx, cancelInit := context.WithTimeout(ctx, a.cfg.InitTimeout)

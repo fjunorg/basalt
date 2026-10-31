@@ -31,6 +31,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/menu"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
 	"github.com/basalt-go/basalt/pkg/modules/notify"
+	"github.com/basalt-go/basalt/pkg/modules/oplog"
 	"github.com/basalt-go/basalt/pkg/modules/org"
 	"github.com/basalt-go/basalt/pkg/modules/rag"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
@@ -56,7 +57,7 @@ func OpenDB(db *gorm.DB) (*Stores, error) {
 		&identity.Client{}, &identity.AuthCode{}, &identity.RefreshToken{},
 		&identity.OnlineSession{}, &identity.UserKick{},
 		&tenantpkg.Package{}, &tenantpkg.TenantPackage{},
-		&errcode.Entry{},
+		&errcode.Entry{}, &oplog.Entry{},
 		&org.Dept{}, &org.Post{},
 		&dict.Type{}, &dict.Data{},
 		&sysconfig.Item{},
@@ -107,6 +108,7 @@ func (s *Stores) MenuStore() menu.Store               { return &MenuStore{db: s.
 func (s *Stores) OnlineStore() identity.OnlineStore   { return &OnlineStore{db: s.DB} }
 func (s *Stores) TenantPkgStore() tenantpkg.Store     { return &TenantPkgStore{db: s.DB} }
 func (s *Stores) ErrCodeStore() errcode.Store         { return &ErrCodeStore{db: s.DB} }
+func (s *Stores) OpLogStore() oplog.Store             { return &OpLogStore{db: s.DB} }
 
 // AuditChainStore 按传入哈希器构造持久化审计链（SM3/SHA-256 由调用方
 // 依 BASALT_CRYPTO_ALGO 决定）。

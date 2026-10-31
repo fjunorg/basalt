@@ -142,6 +142,28 @@ func TokenFPFrom(ctx context.Context) (string, bool) {
 	return fp, ok
 }
 
+// ParseUserID 验签并提取令牌主体用户 ID（Bearer 令牌无效/过期/缺失
+// 返回空）。供外层采集中间件（oplog）在 AuthMiddleware 之外还原
+// 请求者身份——完整验签（非裸解析），日志侧用户字段可信。
+func (t *TokenIssuer) ParseUserID(r *http.Request) string {
+	auth := r.Header.Get("Authorization")
+	token, ok := strings.CutPrefix(auth, "Bearer ")
+	if !ok || token == "" {
+		return ""
+	}
+	parsed, err := jwt.Parse(token, func(tk *jwt.Token) (any, error) {
+		return t.secret, nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	if err != nil || !parsed.Valid {
+		return ""
+	}
+	sub, err := parsed.Claims.GetSubject()
+	if err != nil {
+		return ""
+	}
+	return sub
+}
+
 // WithUserID 把用户 ID 注入上下文（复用 AuthMiddleware 的注入语义，
 // 供测试与非 HTTP 链路构造等价上下文，如租户路由 store 的解析）。
 func WithUserID(ctx context.Context, id string) context.Context {
