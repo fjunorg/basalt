@@ -12,7 +12,7 @@
         <template #default="{ row }">
           <el-tag v-for="(st, i) in row.steps" :key="i" size="small" style="margin: 2px"
             :type="st.mode === 'or-sign' ? 'warning' : 'primary'">
-            {{ i + 1 }}. {{ st.name }}（{{ st.mode === 'or-sign' ? '或签' : '会签' }}·{{ st.approvers.length }}人）
+            {{ i + 1 }}. {{ st.name }}（{{ modeLabel(st.mode) }}·{{ st.approvers.length }}人）
           </el-tag>
         </template>
       </el-table-column>
@@ -45,6 +45,7 @@
         <el-select v-model="st.mode" style="width: 100">
           <el-option label="会签" value="countersign" />
           <el-option label="或签" value="or-sign" />
+          <el-option label="依次" value="sequential" />
         </el-select>
         <el-button text type="danger" @click="form.steps.splice(i, 1)">删</el-button>
       </div>
@@ -62,7 +63,9 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from '../element'
 import { api, perms, hasPerm, errMsg } from '../api'
 
-interface WfStep { name: string; approvers: string[]; mode: 'countersign' | 'or-sign' }
+interface WfStep { name: string; approvers: string[]; mode: 'countersign' | 'or-sign' | 'sequential' }
+// 契约 workflow-api-contract.md §7：mode 枚举含 sequential（按序逐人）
+const modeLabel = (m: string) => ({ countersign: '会签', 'or-sign': '或签', sequential: '依次' }[m] || m)
 interface WfDefRow { id: string; key: string; name: string; category: string; steps: WfStep[]; status: string }
 interface UserRow { id: string; username: string }
 
