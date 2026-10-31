@@ -1,149 +1,133 @@
-# Basalt（玄武）
+# Basalt
 
-> 纯 Go · 纯开源 · AI 原生 · 面向 ToB/ToG 的通用后端平台框架
-> Pure-Go, fully open-source (Apache-2.0), AI-native backend platform framework for B2B & GovTech.
+> Pure Go · Fully open source (Apache-2.0) · AI-native · Backend platform for B2B & GovTech
+> 纯 Go · 纯开源 · AI 原生 · 面向 ToB/ToG 的通用后端平台框架 —— [简体中文](README.zh-CN.md)
 
-> **命名说明**：仓库所在目录名为 `AiGoAdmin`（历史工作代号）；项目正式名称为 **Basalt（玄武）**，Go module `github.com/basalt-go/basalt`——文档与发布物统一以 Basalt 为准。
+> **Naming note**: the repository directory is named `AiGoAdmin` (a legacy working codename); the project's official name is **Basalt**, Go module `github.com/basalt-go/basalt`.
 
 ![Status](https://img.shields.io/badge/release-v1.7.0-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Go](https://img.shields.io/badge/go-1.26%2B-00ADD8) ![Tests](https://img.shields.io/badge/tests-race--enabled-green)
 
-## 已交付模块（API-first，单体形态）
+Basalt is a monolithic, API-first backend platform framework written in pure Go. It combines the platform capabilities of enterprise admin frameworks (RBAC, multi-tenancy, workflow, audit), an AI infrastructure layer (model gateway, quotas, content safety, RAG, agent orchestration), and compliance features required in the Chinese enterprise/government market (national cryptography SM2/SM3, tamper-evident audit chain) — in a single static binary with an embedded web console.
 
-| 层 | 模块 | 能力 | 版本 |
-|----|------|------|------|
-| L0 | kernel | 模块系统（依赖拓扑/生命周期）、gin Router 抽象、配置、slog、OTel 可观测、**国密 Provider**（SM3 摘要 GB/T 32905 + SM2 签名 GB/T 32918.2，官方向量验证）、**数据权限 Scope 模型**、CLI（serve/version/new/secure） | ✅ |
-| L1 | identity | 用户/角色 RBAC、bcrypt、JWT（jti + 会话注册表 + 踢下线）、权限点中间件（通配）、**OAuth2 2.1/SSO 应用管理（PKCE/客户端凭证/轮换刷新/钉钉三方登录）**、**角色数据权限五档（all/dept/dept_and_below/self/custom）**、幂等引导管理员、prod 安全守卫 | v0.3 |
-| L1 | tenant | 租户 CRUD、租户上下文实时解析、行级隔离；v1.4.0 起 dedicated-db 库级隔离（v1.6.0 扩至 14 个业务模块请求级路由，平台级模块固定主库，见 [docs/tenant-isolation.md](docs/tenant-isolation.md)） | v0.2 |
-| L1 | audit | **防篡改审计链**（链式哈希防单点篡改、链尾 SM2 签名防整库重算伪造历史、篡改定位、算法切换多算法逐段核验、GORM 持久化重启续链、SM3 可选） | v0.2 |
-| L1 | workflow | 轻量审批流（会签/或签/**依次审批**、待办、守卫、**抄送/转办/委派/加签/驳回至节点（轮次机制）**；实例与定义 GORM 持久化、重启恢复） | v0.2 |
-| L1 | org | 组织架构（部门树 + 岗位；树级数据权限裁剪接入） | v0.1 |
-| L1 | dict | 数据字典（字典类型 + 数据项，表单下拉/枚举统一维护） | v0.1 |
-| L1 | sysconfig | 参数配置（运行期动态 KV，登录级只读） | v0.1 |
-| L1 | notice | 通知公告（草稿/发布/全员已读视图） | v0.1 |
-| L1 | **notify** | **通知中心**（短信/邮件/站内信三渠道；模板渲染、凭据环境变量注入不落库、发送日志、站内信收件箱、阿里云短信自研签名/SMTP 零新依赖） | v0.1 |
-| L1 | **menu** | **动态菜单**（菜单 CRUD + 角色绑定 + 按权限过滤的菜单树下发，API 空时前端回退静态映射；种子三分组 IA） | v0.1 |
-| L1 | **tenantpkg** | **租户套餐**（菜单/权限集合模板 CRUD + 租户绑定 + PermFilter 单点裁剪，与动态菜单自动联动） | v0.1 |
-| L1 | **errcode** | **错误码管理**（注册表 CRUD + 现有模块错误码种子） | v0.1 |
-| L1 | file | 文件管理（本地上传/下载/列表；v1.7.0 起 **S3 兼容多云存储**——自研 SigV4 零 SDK 依赖，MinIO/OSS/COS，混合存量路由与预签名直链，见 [docs/file-s3.md](docs/file-s3.md)） | v0.1 |
-| L1 | job | 轻量任务调度（间隔 + **cron 表达式双模式**、启停/手动触发、**在线动态 HTTP 任务**、执行日志持久化查询，重启恢复含 NextRun 重算） | v0.1 |
-| L1 | finance | 财务业务（报销/付款/发票登记/部门预算，审批联动与预算预检；部门+申请人双维数据权限接入） | v0.1 |
-| L1 | document | 公文流转（收发文登记、密级缓急、审批联动、归档；拟稿部门数据权限接入） | v0.1 |
-| L1 | contract | 合同管理（登记/审批联动/生效完结 + 到期扫描督办） | v0.1 |
-| L1 | **oplog** | **操作/API 日志与运行监控**（异步采集不阻塞请求、用户字段完整验签、BASALT_OPLOG_MODE 采样、日志分页过滤 + 90 秒滑动窗口 QPS/错误率指标） | v0.1 |
-| L2 | ai-gateway | **OpenAI 兼容模型网关** + **SSE 流式**（include_usage 记账）+ 租户**月度账期**配额（持久化原子记账）+ 调用审计；v1.2.0 起集成内容安全审核 | v0.2 |
-| L2 | ai-safety | **AI 内容安全**（敏感词库、租户可配策略、调用链审核：reject/replace/mark，默认从严回落） | v0.1 |
-| L2 | rag | **知识库与检索增强**（库/文档/切片/向量化/相似检索；OpenAI 兼容 embeddings，sqlite blob 向量起步，VectorSearcher 接口预留专用向量库） | v0.1 |
-| L2 | agent | **轻量 Agent 编排**（定义/运行/工具调用循环/SSE 运行事件；LLM 经 ai-gateway 全链路，内置 RAG 检索工具；自研循环不引 Eino，ToolRegistry 预留生态对接） | v0.1 |
-| — | stores | GORM 持久化（SQLite 无 CGO，sqlite 装配下覆盖全部 22 个模块；openGauss-postgres 分支占位，达梦/OceanBase 经 OpenDB 注入） | v0.1 |
-| L3 | console | Admin Console（Vue3 + TypeScript + Element Plus 按需导入，30 视图：RBAC/**动态菜单（后端下发+静态回退）**/租户隔离与套餐/审批/审计链/AI 对话/Agent/通知中心/SSO/在线用户/错误码 + 业务模块管理页，Semi Design 视觉，go:embed 单二进制） | v0.1 |
+## Why Basalt
 
-> 平台业务模块（L1）与 AI 基础设施模块（L2）均具备 GORM 持久化与内存零依赖两条装配路径（`BASALT_STORAGE=sqlite|memory`，serve 层全装配冒烟测试锁定）；版本明细见 [CHANGELOG](CHANGELOG.md)。
+| Differentiator | What you get |
+|---------------|--------------|
+| **AI governance, built in** | OpenAI-compatible gateway with tenant-level monthly token quotas and atomic metering, full AI call auditing, content safety (reject / replace / mark) — governance is native, not an add-on |
+| **Compliance by default** | Tamper-evident audit chain (hash chaining against single-point tampering, chain-head SM2 signatures against full-history recomputation), SM3 digest (GB/T 32905) + SM2 signing (GB/T 32918.2) with official test-vector verification, `secure --check` compliance self-audit |
+| **Xinchuang-ready** | Cross-compilation matrix for Kylin/UOS on Kunpeng (arm64) and LoongArch (loong64) in CI; DM / openGauss / OceanBase via the OpenDB injection seam; single static binary (CGO-free SQLite) for offline air-gapped delivery |
+| **Tenant database isolation** | Row-level isolation plus **dedicated-db** mode: request-level routing of 14 business modules to per-tenant databases, credentials injected via environment variables (never stored), strict fail-closed semantics |
+| **Agent + RAG out of the box** | Lightweight agent orchestration (definition → run → tool loop → SSE events) with LLM calls always routed through the gateway (quota / safety / metering / audit), and RAG search as a built-in tool |
+| **Single-binary delivery** | Admin console (Vue 3 + TypeScript + Element Plus) embedded via `go:embed` — one executable, no JVM, no Node runtime in production |
+| **Pure open source** | Every feature under a single Apache-2.0 license, no withheld "commercial edition" — see the [Open Source Pledge](OPEN_SOURCE_PLEDGE.md) |
 
-> 1.1 路线：gRPC/服务治理、SM4/GMTLS（已提前交付：Admin Console v1.1.0、RAG 与内容安全 v1.2.0、Agent 编排与 dedicated-db 隔离 v1.3.0、SM2 签名 v1.4.0、P0 平台完备性批次——通知中心/数据权限/OAuth2+SSO/动态菜单/job cron/在线用户/租户套餐/错误码——v1.6.0）；shared-db 隔离与支付系统经评估不自研（见 [docs/tenant-isolation.md](docs/tenant-isolation.md) §4 与 CHANGELOG 战略决策记录）。详见 [CHANGELOG](CHANGELOG.md)。
-
-## CLI 命令
-
-| 命令 | 说明 |
-|------|------|
-| `basalt serve` | 启动 HTTP 服务（`--addr` / `--env dev\|test\|staging\|prod`） |
-| `basalt version` | 打印版本 |
-| `basalt new module <name>` | 生成模块脚手架 |
-| `basalt seed --demo` | 演示数据集初始化（幂等）：组织三级部门树/跨部门角色用户/数据权限各档角色/字典/多状态公告/示例租户+套餐绑定/财务单据/公文合同/知识库/Agent 定义/通知模板/演示审批流。**prod 环境拒绝执行**（`--force` 显式覆盖）；仅 sqlite 存储；重复执行数据量不变。演示账号统一口令 `Demo@2026`（demo-ceo / demo-dev / demo-sale / demo-viewer / demo-fin / demo-tenant） |
-| `basalt secure --check` | 等保基线自查：七项检查（凭据默认值/加密算法合规/上传目录/审计链完整性/租户隔离开关/密钥暴露面/SSO 与三方登录密钥），三态 PASS/WARN/FAIL；退出码 **0=全过 / 1=有 WARN / 2=有 FAIL**（CI 可直接消费） |
-
-## 定位
-
-| 差异化能力 | 说明 |
-|-----------|------|
-| **AI 原生** | 模型网关、租户级 Token 配额与成本核算、AI 全链路审计——开箱内建，而非外挂 |
-| **合规内建** | 防篡改审计链（已交付）、国密 SM3 摘要 + SM2 签名（已交付：审计链 SM3 + 链尾 SM2 签名防整库重算，emmansun/gmsm）、`secure --check` 等保基线自查（已交付）、SM4/GMTLS（gmsm 生态就绪待接）、等保三级基线（规划），默认开启而非可选项 |
-| **信创适配** | 麒麟/统信 OS、鲲鹏(ARM64)/龙芯(LoongArch) 交叉编译矩阵已入 CI；达梦/openGauss/OceanBase 方言经 OpenDB 注入 |
-| **纯开源承诺** | 全部功能单一 Apache 2.0 协议，永无闭源"商业版"——见 [OPEN_SOURCE_PLEDGE.md](OPEN_SOURCE_PLEDGE.md) |
-
-竞品调研与架构决策记录见 [docs/](docs/) 目录。
-
-## 快速开始
+## Quickstart (5 minutes)
 
 ```bash
-# 要求 Go >= 1.26
-go run ./cmd/basalt serve
+# Requires Go >= 1.26
+make build
 
-# 首启引导管理员：admin / Basalt@2026（生产环境必须显式配置）
-curl -X POST localhost:8080/api/v1/identity/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"Basalt@2026"}'
+# Seed a demo dataset (idempotent, sqlite only; refused in prod without --force):
+#   org tree, roles across data-permission scopes, 6 cross-dept users,
+#   dictionaries, notices, a sample tenant + package, finance/document/contract
+#   records, a knowledge base, agent definitions, notify templates, a 2-step
+#   approval flow. Demo accounts share the password Demo@2026:
+#   demo-ceo / demo-dev / demo-sale / demo-viewer / demo-fin / demo-tenant
+BASALT_STORAGE=sqlite BASALT_DB_DSN=/tmp/basalt.db ./bin/basalt seed --demo
 
-# 生产形态推荐（持久化 + 国密审计链 + AI 接入）：
-BASALT_STORAGE=sqlite \                      # 全部 22 模块落盘（含审批流、通知与动态菜单）
+# Start the server, then open http://localhost:8080 and sign in as demo-ceo / Demo@2026
+BASALT_STORAGE=sqlite BASALT_DB_DSN=/tmp/basalt.db ./bin/basalt serve
+```
+
+The first bootstrapped admin account is `admin / Basalt@2026` (**must** be overridden via env in production — the prod guard refuses default credentials).
+
+Production topology (persistence + SM3 audit chain + AI provider):
+
+```bash
+BASALT_STORAGE=sqlite \                      # all 22 modules persisted (incl. workflow, notify, menus)
 BASALT_DB_DSN=/var/lib/basalt/basalt.db \
-BASALT_CRYPTO_ALGO=sm3 \                     # 审计链切换国密 SM3
-BASALT_AI_PROVIDER_URL=http://vllm:8000 \    # 任意 OpenAI 兼容端点
+BASALT_CRYPTO_ALGO=sm3 \                     # audit chain digest → SM3
+BASALT_AI_PROVIDER_URL=http://vllm:8000 \    # any OpenAI-compatible endpoint
 BASALT_AI_PROVIDER_KEY=sk-xxx \
   basalt serve --env prod
 ```
 
-生产部署（单二进制 / Docker 容器两条路径）与环境变量清单（15 项，含用途与默认值）见 [docs/deploy.md](docs/deploy.md) 与 [.env.example](.env.example)。
+Deployment (single binary / Docker) and the full environment variable reference (26 variables with defaults) are documented in [docs/deploy.md](docs/deploy.md) and [.env.example](.env.example).
 
-### 前端构建说明（console/dist 已入库）
+## Module Overview
 
-`console/dist` 为**有意提交**的前端构建产物：`go:embed`（见 `console/embed.go`）依赖它，保证 `go build` 即得带 UI 的单文件二进制——这是信创离线单文件交付的硬约束。修改 `console/` 源码后需重新构建并随源码一并提交：
+All modules ship with **two assembly paths** — GORM persistence (sqlite) and an in-memory zero-dependency mode (`BASALT_STORAGE=sqlite|memory`) — locked by a serve-level full-assembly smoke test. Version details: [CHANGELOG](CHANGELOG.md).
 
-```bash
-cd console && npm install && npm run build
+| Layer | Module | Capabilities | Version |
+|-------|--------|--------------|---------|
+| L0 | kernel | Module system (dependency-topology lifecycle), gin router abstraction, config, slog, OTel observability, **SM2/SM3 crypto provider** (official test vectors), data-permission scope model, CLI (serve/version/new/secure) | ✅ |
+| L1 | identity | User/role RBAC, bcrypt, JWT (jti + session registry + kick), wildcard permission middleware, **OAuth2 2.1 / SSO app management** (PKCE, client credentials, rotating refresh, DingTalk social login), **role data scope (5 levels)**, idempotent admin bootstrap, prod credential guard | v0.3 |
+| L1 | tenant | Tenant CRUD, per-request tenant context, row-level isolation; **dedicated-db mode** — 14 business modules routed per request, platform modules pinned to the master DB ([docs](docs/tenant-isolation.md)) | v0.2 |
+| L1 | audit | **Tamper-evident audit chain** — hash chaining, chain-head SM2 signatures against full-history recomputation, precise tamper localization, multi-algorithm verification across algo switches, GORM persistence with restart continuation | v0.2 |
+| L1 | workflow | Lightweight approval flow: count/or-sign, **sequential approval**, delegation/transfer/countersign (add-sign), reject-to-node with round semantics, CC; definitions & instances persisted | v0.2 |
+| L1 | org / dict / sysconfig / notice | Org tree + posts (data-scope pruning), dictionaries, runtime KV config, announcements | v0.1 |
+| L1 | **notify** | Notification center: SMS / email / in-app inbox; template rendering, credentials via env (never stored), send logs; self-implemented Aliyun SMS signing, SMTP with zero new dependencies | v0.1 |
+| L1 | **menu** | Dynamic menus: CRUD + role binding + permission-filtered menu tree API, static fallback on empty payload | v0.1 |
+| L1 | **tenantpkg** | Tenant packages: menu/permission templates, binding, single-point permission trimming wired into menus | v0.1 |
+| L1 | **errcode** | Error-code registry with seeded module codes | v0.1 |
+| L1 | file | File management with **S3-compatible multi-cloud driver** — self-implemented SigV4 (zero SDK deps), MinIO/OSS/COS, hybrid legacy routing, presigned URLs ([docs](docs/file-s3.md)) | v0.1 |
+| L1 | job | Scheduler: interval + **cron expressions**, dynamic HTTP callback tasks, persisted run logs, restart recovery with NextRun recompute | v0.1 |
+| L1 | finance / document / contract | Expense/payment/invoice/budget (approval-linked, data-scope filtered), official document flow (G2B hallmark), contract lifecycle with expiry scanning | v0.1 |
+| L1 | **oplog** | Operation/API logs & runtime metrics — async non-blocking collection, verified user attribution, sampling modes, paged filtering + 90s sliding-window QPS/error-rate | v0.1 |
+| L2 | ai-gateway | **OpenAI-compatible model gateway** + SSE streaming (include_usage metering) + tenant monthly quotas (atomic persisted metering) + call auditing; content-safety integrated since v1.2.0 | v0.2 |
+| L2 | ai-safety | **AI content safety**: sensitive-word dictionaries, per-tenant policies, reject/replace/mark with strict-by-default fallback | v0.1 |
+| L2 | rag | Knowledge bases → documents → chunks → embeddings → similarity search; OpenAI-compatible embeddings, sqlite blob vectors to start, VectorSearcher seam for dedicated vector DBs | v0.1 |
+| L2 | agent | **Lightweight agent orchestration**: definitions → runs → tool loop → SSE events; LLM always via the gateway, built-in RAG search tool, ToolRegistry seam for ecosystem tools | v0.1 |
+| — | stores | GORM persistence (CGO-free SQLite; covers all 22 modules; openGauss/postgres branch reserved, DM/OceanBase via OpenDB injection) | v0.1 |
+| L3 | console | Admin console: Vue 3 + TypeScript + Element Plus (on-demand import), 32 views — RBAC, dynamic menus, tenant isolation & packages, approvals, audit chain, AI chat, agents, notify center, SSO, sessions, error codes, business modules; Semi Design visual language, embedded via go:embed | v0.1 |
+
+## Architecture
+
+```
+L3  Web console (Vue3 + TS + Element Plus on-demand, go:embed)      console/
+L2  AI infrastructure: gateway · quota · audit · safety · RAG · agent  pkg/ai/ + pkg/modules/
+L1  Platform modules: identity · tenant · workflow · audit · business suite  pkg/modules/
+L0  Kernel: HTTP · config · logging · governance · SM crypto · CLI  pkg/kernel/
+    Cross-cutting: Xinchuang (Kylin/LoongArch/Kunpeng · DM/openGauss) · deployment · security
 ```
 
-## 架构
+Details: [docs/01-architecture.md](docs/01-architecture.md). Writing a module takes a single struct implementing `Name/Version/Dependencies/Init/Start/Stop` — modules are topologically ordered by the registry (see "Write a module" in the [Chinese README](README.zh-CN.md) for the annotated example).
 
-```
-L3  前端控制台（Vue3 + TS + Element Plus 按需导入，go:embed 嵌入）  console/
-L2  AI 基础设施：模型网关 · 配额 · 审计 · 内容安全 · RAG · Agent（已交付）  pkg/ai/ + pkg/modules/
-L1  平台业务：身份 · 多租户 · 工作流 · 审计 · 业务模块群（组织/字典/参数/
-    通知/文件/任务/财务/公文/合同）（可插拔模块）           pkg/modules/
-L0  内核：HTTP · 配置 · 日志 · 服务治理 · 国密 · CLI        pkg/kernel/
-横切 信创适配（麒麟/龙芯/鲲鹏 · 达梦/openGauss）· 部署 · 安全
-```
+## Documentation Index
 
-详见 [docs/01-architecture.md](docs/01-architecture.md)。
+| Doc | Contents |
+|-----|----------|
+| [CHANGELOG](CHANGELOG.md) | Release history (v1.0.0 → v1.7.0), per-module versions, strategic decisions |
+| [docs/01-architecture.md](docs/01-architecture.md) | Layered architecture and design decisions |
+| [docs/02-oss-governance.md](docs/02-oss-governance.md) | Open-source governance and dependency policy |
+| [docs/03-gap-analysis.md](docs/03-gap-analysis.md) | Competitive gap analysis (vs. yudao × Spring AI × Eino) |
+| [docs/04-frontend-ui-evaluation.md](docs/04-frontend-ui-evaluation.md) | Console frontend technology choices |
+| [docs/deploy.md](docs/deploy.md) | Deployment guide (single binary & Docker) |
+| [docs/tenant-isolation.md](docs/tenant-isolation.md) | Tenant DB isolation: modes, boundaries, ops runbook |
+| [docs/file-s3.md](docs/file-s3.md) | S3-compatible storage: matrix, hybrid routing, isolation |
+| [docs/sm2-ops.md](docs/sm2-ops.md) | SM2 chain-head signing operations |
 
-## 编写一个模块
+## CLI
 
-```go
-type Hello struct{}
+| Command | Description |
+|---------|-------------|
+| `basalt serve` | Start the HTTP server (`--addr`, `--env dev\|test\|staging\|prod`) |
+| `basalt version` | Print version |
+| `basalt new module <name>` | Scaffold a new module |
+| `basalt seed --demo` | Idempotent demo dataset. **Refused in prod** (`--force` overrides); sqlite only; safe to re-run. Demo password `Demo@2026` (demo-ceo / demo-dev / demo-sale / demo-viewer / demo-fin / demo-tenant) |
+| `basalt secure --check` | Compliance self-audit: 7 checks, PASS/WARN/FAIL verdicts; exit codes **0 = all pass / 1 = warnings / 2 = failures** (CI-friendly) |
 
-func (*Hello) Name() string           { return "hello" }
-func (*Hello) Version() string        { return "0.1.0" }
-func (*Hello) Dependencies() []string { return nil }
+## Roadmap
 
-func (*Hello) Init(_ context.Context, a *app.App) error {
-    a.Mux().HandleFunc("GET /api/v1/hello", func(w http.ResponseWriter, _ *http.Request) {
-        web.OK(w, map[string]string{"msg": "hello"})
-    })
-    return nil
-}
-func (*Hello) Start(context.Context) error { return nil }
-func (*Hello) Stop(context.Context) error  { return nil }
+M1–M3 milestones have all been delivered early: Admin Console (v1.1.0), RAG & content safety (v1.2.0), agent orchestration & dedicated-db isolation (v1.3.0), SM2 signing (v1.4.0), the P0 platform-completeness batch — notify / data permissions / OAuth2+SSO / dynamic menus / job cron / sessions / tenant packages / error codes (v1.6.0) — and the P1a efficiency batch (v1.7.0: seed, xlsx I/O, S3 storage, workflow actions, oplog). Next: gRPC/service governance, SM4/GMTLS. Shared-db isolation and payments are deliberate non-goals (see [docs/tenant-isolation.md](docs/tenant-isolation.md) §4 and the strategic-decision records in the CHANGELOG).
 
-// 注册：a.Registry().Register(&Hello{})
-```
+## Contributing & Security
 
-模块经 Registry 做依赖拓扑排序，Init/Start 正序、Stop 逆序驱动——这是 Basalt 可插拔架构的核心机制（`pkg/kernel/app`）。
+- Contributions: [CONTRIBUTING.md](CONTRIBUTING.md) — DCO sign-off required
+- Security: [SECURITY.md](SECURITY.md) — **do not report vulnerabilities via public issues**
+- Governance: [GOVERNANCE.md](GOVERNANCE.md) · Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
-## 路线图
+## License
 
-| 里程碑 | 周期 | 交付 |
-|--------|------|------|
-| M1 | 0–3 月 | 内核完善（gin/cobra/otel/国密）+ 身份/多租户实装 + CLI 脚手架 |
-| M2 | 3–6 月 | 轻量审批工作流 + 防篡改审计 + AI 网关与配额 |
-| M3 | 6–12 月 | 已全部提前交付：Admin Console（v1.1.0）、RAG 与内容安全（v1.2.0）、Agent 编排（v1.3.0，自研轻量实现而非集成 Eino） |
-
-## 参与
-
-- 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)（DCO 签名必需）
-- 安全漏洞：[SECURITY.md](SECURITY.md)（**请勿在公开 issue 报告安全问题**）
-- 社区治理：[GOVERNANCE.md](GOVERNANCE.md)
-- 行为准则：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-
-## 许可
-
-[Apache License 2.0](LICENSE) · 版权所有 The Basalt Authors。
-"Basalt" 名称与徽标为项目商标，不随代码许可授予。
+[Apache License 2.0](LICENSE) · Copyright The Basalt Authors.
+The "Basalt" name and logo are project trademarks and are not licensed under the code license.
