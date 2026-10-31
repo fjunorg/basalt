@@ -48,6 +48,7 @@
 | `basalt version` | 打印版本 |
 | `basalt new module <name>` | 生成模块脚手架 |
 | `basalt secure --check` | 等保基线自查：七项检查（凭据默认值/加密算法合规/上传目录/审计链完整性/租户隔离开关/密钥暴露面/SSO 与三方登录密钥），三态 PASS/WARN/FAIL；退出码 **0=全过 / 1=有 WARN / 2=有 FAIL**（CI 可直接消费） |
+| `basalt seed --demo` | 演示数据集初始化（幂等）：组织三级部门树/跨部门角色用户/数据权限各档角色/字典/多状态公告/示例租户+套餐绑定/财务单据/公文合同/知识库/Agent 定义/通知模板/演示审批流。**prod 环境拒绝执行**（`--force` 显式覆盖）；仅 sqlite 存储；重复执行数据量不变。演示账号统一口令 `Demo@2026`（demo-ceo / demo-dev / demo-sale / demo-viewer / demo-fin / demo-tenant） |
 
 ## 定位
 
