@@ -114,6 +114,60 @@ export function hasPerm(perms: string[] | null | undefined, want: string): boole
   return (perms || []).some((p) => p === '*' || p === want || (p.endsWith('*') && want.startsWith(p.slice(0, -1))))
 }
 
+// ===== OpLog 操作日志与运行时指标（契约 oplog-api-contract.md）=====
+
+export interface OpLogRow {
+  id: string
+  time: string
+  method: string
+  path: string
+  status: number
+  duration_ms: number
+  user_id?: string
+  remote?: string
+  user_agent?: string
+  module?: string
+}
+
+export interface OpLogPage {
+  rows: OpLogRow[]
+  total: number
+  page: number
+  page_size: number
+}
+
+export interface OpMetrics {
+  window: { window_seconds: number; requests: number; qps: number; error_rate: number; p50_ms: number; p95_ms: number; p99_ms: number }
+  process: { goroutines: number; heap_alloc_mb: number; sys_mb: number; num_gc: number; go_version: string }
+  collector: { dropped: number; buffered: number; mode: string }
+}
+
+// xlsx 导出下载（Bearer 携带 + blob 落盘；导出端点均为 GET 返回
+// application/vnd.openxmlformats-officedocument.spreadsheetml.sheet）
+export async function downloadXlsx(path: string, filename: string): Promise<void> {
+  const res = await fetch(path, {
+    headers: { Authorization: 'Bearer ' + token.get() },
+  })
+  if (!res.ok) {
+    const env = (await res.json().catch(() => ({}))) as Partial<Envelope>
+    throw new Error(env.message || `导出失败(${res.status})`)
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// 用户导入结果（identity user_io.go：{imported, failed, errors}）
+export interface ImportResult {
+  imported: number
+  failed: number
+  errors: Array<{ row: number; reason: string }>
+}
+
 // ===== SSO/OAuth2（契约 sso-api-contract.md）=====
 
 // §1 应用实体（Client；secret 仅创建/轮换响应一次性出现）

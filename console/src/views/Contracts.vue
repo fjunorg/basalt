@@ -2,6 +2,7 @@
   <div class="page">
     <div class="toolbar">
       <el-button type="primary" @click="dlg = true">登记合同</el-button>
+      <el-button @click="doExport(scope === 'all' ? 'all' : '')">导出{{ scope === 'all' ? '（全量）' : '（我的）' }}</el-button>
       <el-button @click="load">刷新</el-button>
       <el-radio-group v-model="scope" size="small" @change="load">
         <el-radio-button value="mine">我的</el-radio-button>
@@ -58,7 +59,18 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from '../element'
-import { api, perms, hasPerm, errMsg } from '../api'
+import { api, perms, hasPerm, errMsg, downloadXlsx } from '../api'
+
+// 导出合同（contract export.go：GET /contracts/export?scope=all|本人）
+async function doExport(scopeParam: string) {
+  try {
+    const q = scopeParam ? '?scope=all' : ''
+    await downloadXlsx('/api/v1/contracts/export' + q, 'contracts.xlsx')
+    ElMessage.success('已导出 contracts.xlsx')
+  } catch (e) {
+    ElMessage.error(errMsg(e))
+  }
+}
 
 interface ContractRow {
   id: string

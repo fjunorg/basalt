@@ -48,6 +48,8 @@
             <el-menu-item v-if="canRoute('/audit')" index="/audit">审计链</el-menu-item>
             <el-menu-item v-if="canRoute('/jobs')" index="/jobs">定时任务</el-menu-item>
             <el-menu-item v-if="canRoute('/online-users')" index="/online-users">在线用户</el-menu-item>
+            <el-menu-item v-if="canRoute('/op-logs')" index="/op-logs">系统日志</el-menu-item>
+            <el-menu-item v-if="canRoute('/op-metrics')" index="/op-metrics">运行监控</el-menu-item>
           </el-sub-menu>
         </template>
       </el-menu>

@@ -12,7 +12,12 @@
       <el-table-column label="大小" width="110">
         <template #default="{ row }">{{ fmtSize(row.size) }}</template>
       </el-table-column>
-      <el-table-column prop="content_type" label="类型" width="180" show-overflow-tooltip />
+      <el-table-column prop="content_type" label="类型" width="160" show-overflow-tooltip />
+      <el-table-column label="存储" width="80">
+        <template #default="{ row }">
+          <el-tag size="small" :type="row.storage === 's3' ? 'warning' : 'info'">{{ row.storage === 's3' ? 'S3' : '本地' }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="created_at" label="上传时间" width="170">
         <template #default="{ row }">{{ new Date(row.created_at).toLocaleString('zh-CN') }}</template>
       </el-table-column>
@@ -31,7 +36,8 @@ import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from '../element'
 import { api, token, perms, hasPerm, errMsg, type Envelope } from '../api'
 
-interface FileRow { id: string; name: string; size: number; content_type: string; created_at: string }
+// storage 字段（file.go Meta）：local|s3，空=local 存量兼容
+interface FileRow { id: string; name: string; size: number; content_type: string; storage?: string; created_at: string }
 
 const can = (p: string) => hasPerm(perms.get(), p)
 

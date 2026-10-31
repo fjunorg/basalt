@@ -4,6 +4,7 @@
       <el-tab-pane label="我的报销" name="expense">
         <div class="toolbar">
           <el-button type="primary" @click="dlg = true">新建报销单</el-button>
+          <el-button @click="doExport">导出</el-button>
           <el-button @click="loadExpenses">刷新</el-button>
         </div>
         <el-table :data="expenses" border stripe size="small" v-loading="loading">
@@ -134,7 +135,17 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from '../element'
-import { api, perms, hasPerm, errMsg } from '../api'
+import { api, perms, hasPerm, errMsg, downloadXlsx } from '../api'
+
+// 导出报销单（finance export.go：GET /expenses/export，默认本人）
+async function doExport() {
+  try {
+    await downloadXlsx('/api/v1/finance/expenses/export', 'expenses.xlsx')
+    ElMessage.success('已导出 expenses.xlsx（本人报销单）')
+  } catch (e) {
+    ElMessage.error(errMsg(e))
+  }
+}
 
 interface ExpenseRow { id: string; business_key: string; reason: string; amount: number; status: string; created_at: string }
 interface InvoiceRow { id: string; code: string; title: string; tax_no: string; amount: number; date: string }

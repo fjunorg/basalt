@@ -71,6 +71,10 @@ const routes: RouteRecordRaw[] = [
       { path: 'online-users', component: () => import('./views/OnlineUsers.vue'), meta: { title: '在线用户', perms: ['identity:session:manage'] } },
       { path: 'tenant-pkgs', component: () => import('./views/TenantPkgs.vue'), meta: { title: '租户套餐', perms: ['tenantpkg:manage'] } },
       { path: 'errcodes', component: () => import('./views/ErrCodes.vue'), meta: { title: '错误码', perms: ['errcode:list'] } },
+      // OpLog 两页（契约 oplog-api-contract.md §1/§2，权限点 oplog:read，
+      // 挂系统监控组）：日常排障查询面（区别于审计链合规取证）
+      { path: 'op-logs', component: () => import('./views/OpLogs.vue'), meta: { title: '系统日志', perms: ['oplog:read'] } },
+      { path: 'op-metrics', component: () => import('./views/OpsMetrics.vue'), meta: { title: '运行监控', perms: ['oplog:read'] } },
       { path: 'forbidden', component: () => import('./views/Forbidden.vue'), meta: { title: '无权访问' } },
     ],
   },

@@ -15,7 +15,7 @@
             </template>
           </el-table-column>
           <el-table-column label="轮次" width="70">
-            <template #default="{ row }">第 {{ row.round || 1 }} 轮</template>
+            <template #default="{ row }">第 {{ (row.round || 0) + 1 }} 轮</template>
           </el-table-column>
           <el-table-column prop="created_at" label="发起时间" width="165" :formatter="fmtTime" />
           <el-table-column label="操作" width="250" fixed="right">
@@ -57,7 +57,7 @@
             </template>
           </el-table-column>
           <el-table-column label="轮次" width="70">
-            <template #default="{ row }">第 {{ row.round || 1 }} 轮</template>
+            <template #default="{ row }">第 {{ (row.round || 0) + 1 }} 轮</template>
           </el-table-column>
           <el-table-column prop="created_at" label="发起时间" width="165">
             <template #default="{ row }">{{ new Date(row.created_at).toLocaleString('zh-CN') }}</template>
@@ -133,7 +133,7 @@
     <el-dialog v-model="detailDlg" title="实例详情" width="640">
       <p>
         <b>业务号：</b>{{ detail?.instance?.business_key }}　<b>状态：</b>{{ detail?.instance?.status }}
-        <el-tag v-if="(detail?.instance?.round || 1) > 1" size="small" type="warning" style="margin-left: 8px">第 {{ detail?.instance?.round }} 轮</el-tag>
+        <el-tag v-if="(detail?.instance?.round || 0) > 0" size="small" type="warning" style="margin-left: 8px">第 {{ (detail?.instance?.round || 0) + 1 }} 轮</el-tag>
       </p>
       <p><b>模式：</b>{{ modeLabel(detail?.instance?.mode) }}</p>
       <p v-if="detail?.instance?.cc_user_ids?.length">
@@ -160,7 +160,7 @@
           :type="actTag(a.act)">
           <b>{{ actLabel(a.act) }}</b> · {{ userNameOf(a.actor_id) }}
           <span v-if="a.delegate_from" class="hint">（受 {{ userNameOf(a.delegate_from) }} 委托代审）</span>
-          <span v-if="(a.round || 1) > 1" class="hint">· 第 {{ a.round }} 轮</span>
+          <span v-if="(a.round || 0) > 0" class="hint">· 第 {{ (a.round || 0) + 1 }} 轮</span>
           <div v-if="a.comment" class="hint">{{ a.comment }}</div>
         </el-timeline-item>
       </el-timeline>

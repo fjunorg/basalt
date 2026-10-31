@@ -2,6 +2,8 @@
   <div class="page">
     <div class="toolbar">
       <el-button v-if="can('identity:user:create')" type="primary" @click="dlg = true">新建用户</el-button>
+      <el-button v-if="can('identity:user:create')" @click="openImport">导入</el-button>
+      <el-button v-if="can('identity:user:list')" @click="doExport">导出</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
     <el-table :data="rows" border stripe v-loading="loading">
@@ -49,14 +51,37 @@
         <el-button type="primary" @click="saveRoles">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 用户导入（xlsx） -->
+    <el-dialog v-model="impDlg" title="导入用户（xlsx）" width="560">
+      <el-upload drag :auto-upload="false" :limit="1" :on-change="onImpFile" accept=".xlsx" :show-file-list="false">
+        <div style="padding: 20px 0; color: var(--semi-color-text-2)">
+          点击或拖入 .xlsx 文件<br />
+          <span style="font-size: 12px">表头须含 username / email / dept_id / role_codes</span>
+        </div>
+      </el-upload>
+      <div class="hint">密码列可缺省：空则生成一次性随机口令（导入后管理员重置）；「导出」得到的文件即模板。</div>
+      <template v-if="impResult">
+        <el-divider content-position="left">导入结果</el-divider>
+        <p>成功 <b style="color: var(--semi-color-success)">{{ impResult.imported }}</b> 条，失败 <b style="color: var(--semi-color-danger)">{{ impResult.failed }}</b> 条</p>
+        <el-table v-if="impResult.errors.length" :data="impResult.errors" border size="small" max-height="200">
+          <el-table-column prop="row" label="行号" width="80" />
+          <el-table-column prop="reason" label="失败原因" />
+        </el-table>
+      </template>
+      <template #footer>
+        <el-button @click="impDlg = false">关闭</el-button>
+        <el-button type="primary" :loading="impLoading" :disabled="!impFile" @click="doImport">开始导入</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from '../element'
-import type { TableColumnCtx } from 'element-plus'
-import { api, perms, hasPerm, errMsg } from '../api'
+import type { TableColumnCtx, UploadFile } from 'element-plus'
+import { api, perms, hasPerm, errMsg, downloadXlsx, type ImportResult } from '../api'
 
 interface UserRow {
   id: string
@@ -140,6 +165,57 @@ async function toggle(row: UserRow) {
     await api(`/api/v1/identity/users/${row.id}/status`, { method: 'PATCH', body: { status: to } })
     ElMessage.success('已' + (to === 'active' ? '启用' : '停用'))
     await load()
+  } catch (e) {
+    ElMessage.error(errMsg(e))
+  }
+}
+
+// ---- 导入 / 导出（identity user_io.go：GET /users/export、POST /users/import）----
+const impDlg = ref(false)
+const impFile = ref<File | null>(null)
+const impLoading = ref(false)
+const impResult = ref<ImportResult | null>(null)
+
+function openImport() {
+  impFile.value = null
+  impResult.value = null
+  impDlg.value = true
+}
+
+function onImpFile(f: UploadFile) {
+  impFile.value = (f.raw as File) || null
+  impResult.value = null
+}
+
+async function doImport() {
+  if (!impFile.value) return
+  impLoading.value = true
+  try {
+    // 后端 body 即 xlsx 原始字节（非 multipart）
+    const res = await fetch('/api/v1/identity/users/import', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + (localStorage.getItem('basalt_token') || ''),
+        'Content-Type': 'application/octet-stream',
+      },
+      body: impFile.value,
+    })
+    const env = (await res.json().catch(() => ({}))) as { code?: number; message?: string; data?: ImportResult }
+    if (!res.ok || env.code !== 0) throw new Error(env.message || `导入失败(${res.status})`)
+    impResult.value = env.data || { imported: 0, failed: 0, errors: [] }
+    ElMessage.success(`导入完成：成功 ${impResult.value.imported} 条`)
+    await load()
+  } catch (e) {
+    ElMessage.error(errMsg(e))
+  } finally {
+    impLoading.value = false
+  }
+}
+
+async function doExport() {
+  try {
+    await downloadXlsx('/api/v1/identity/users/export', 'users.xlsx')
+    ElMessage.success('已导出 users.xlsx（可作为导入模板）')
   } catch (e) {
     ElMessage.error(errMsg(e))
   }
