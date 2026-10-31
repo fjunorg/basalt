@@ -53,6 +53,21 @@ jobs:
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
+  scan:
+    name: license & secrets scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: Download modules（填充 GOMODCACHE 供许可机扫）
+        run: go mod download
+      - name: License whitelist scan
+        run: make scan-licenses
+      - name: Secrets leak scan
+        run: make scan-secrets
+
   build:
     name: cross-build ${{ matrix.goos }}/${{ matrix.goarch }}
     strategy:
