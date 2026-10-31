@@ -326,4 +326,6 @@ var Seeds = []Menu{
 
 	// 系统监控
 	{ID: "m-audit", Icon: "DataAnalysis", Name: "审计链", Path: "/audit", Perm: "audit:read", ParentID: "m-group-mon", Sort: 10, Enabled: true},
+	{ID: "m-op-logs", Icon: "List", Name: "系统日志", Path: "/op-logs", Perm: "oplog:read", ParentID: "m-group-mon", Sort: 20, Enabled: true},
+	{ID: "m-op-metrics", Icon: "TrendCharts", Name: "运行监控", Path: "/op-metrics", Perm: "oplog:read", ParentID: "m-group-mon", Sort: 30, Enabled: true},
 }
