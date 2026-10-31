@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -108,10 +109,17 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 	g.Handle(http.MethodPost, "/instances/{id}/reject", auth(m.act("reject")))
 	g.Handle(http.MethodPost, "/instances/{id}/cancel", auth(m.cancel))
 	g.Handle(http.MethodGet, "/todo", auth(m.myTodo))
+	g.Handle(http.MethodGet, "/cc", auth(m.myCC)) // 我的被抄送（只读知会）
 	g.Handle(http.MethodGet, "/instances/mine", auth(m.myInstances))
 	g.Handle(http.MethodGet, "/instances/all", auth(req(PermRead, m.allInstances)))
 	g.Handle(http.MethodPost, "/instances/{id}/delegate", auth(m.delegate))
 	g.Handle(http.MethodPost, "/instances/by-definition/{key}", auth(m.startByDef)) // 发起自己的流程：登录即可
+
+	// 第一批六项操作扩展（契约 workflow-api-contract.md v1）
+	g.Handle(http.MethodPost, "/instances/{id}/cc", auth(m.ccUser))
+	g.Handle(http.MethodPost, "/instances/{id}/delegate-act", auth(m.delegateAct))
+	g.Handle(http.MethodPost, "/instances/{id}/addsign", auth(m.addsign))
+	g.Handle(http.MethodPost, "/instances/{id}/reject-to", auth(m.rejectTo))
 
 	// 流程定义（模板）
 	g.Handle(http.MethodGet, "/definitions", auth(req(PermRead, m.listDefs)))
@@ -129,6 +137,9 @@ type createInstanceReq struct {
 	Summary     string   `json:"summary"`
 	Approvers   []string `json:"approvers"`
 	Mode        string   `json:"mode"`
+	// Steps 多步直发（可选；与 Approvers 单步形态二选一，Steps 优先）。
+	// 每步 mode 支持 countersign | or-sign | sequential（契约 §1）。
+	Steps []Step `json:"steps"`
 }
 
 func (m *Module) createInstance(w http.ResponseWriter, r *http.Request) {
@@ -149,6 +160,7 @@ func (m *Module) createInstance(w http.ResponseWriter, r *http.Request) {
 	in := Instance{
 		ID: NewInstanceID(), BusinessKey: req.BusinessKey, Summary: req.Summary,
 		Mode: req.Mode, Approvers: req.Approvers, CreatorID: u.ID,
+		Steps:  req.Steps,
 		Status: StatusPending, CreatedAt: time.Now().UTC(),
 	}
 	if err := m.store.Create(r.Context(), in); err != nil {
@@ -195,6 +207,9 @@ func (m *Module) act(kind string) http.HandlerFunc {
 			return
 		case errors.Is(err, ErrNotApprover):
 			web.Err(w, http.StatusForbidden, "not an approver of this instance")
+			return
+		case errors.Is(err, ErrNotTurn):
+			web.Err(w, http.StatusForbidden, ErrNotTurn.Error())
 			return
 		case errors.Is(err, ErrAlreadyDone):
 			web.Err(w, http.StatusConflict, "instance already finished or already acted")
@@ -435,4 +450,131 @@ func (m *Module) deleteDef(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	web.OK(w, nil)
+}
+
+// ---------- 六项操作 handler（契约 workflow-api-contract.md v1） ----------
+
+// ccUser 抄送（当前步审批人或创建人）。
+func (m *Module) ccUser(w http.ResponseWriter, r *http.Request) {
+	u, err := m.facade.User(r)
+	if err != nil {
+		web.Err(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var req struct {
+		UserIDs []string `json:"user_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || len(req.UserIDs) == 0 {
+		web.Err(w, http.StatusBadRequest, "user_ids required")
+		return
+	}
+	in, err := m.store.CC(r.Context(), r.PathValue("id"), u.ID, req.UserIDs)
+	if err != nil {
+		m.wfErr(w, err)
+		return
+	}
+	m.record(r.Context(), u.ID, "instance.cc", in.ID, fmt.Sprintf("%d users", len(req.UserIDs)))
+	web.OK(w, in)
+}
+
+// delegateAct 委派（一次性代办，与转办 /delegate 语义对照见契约 §4）。
+func (m *Module) delegateAct(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ToUserID string `json:"to_user_id"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	u, err := m.facade.User(r)
+	if err != nil || req.ToUserID == "" {
+		web.Err(w, http.StatusBadRequest, "to_user_id required")
+		return
+	}
+	in, err := m.store.DelegateAct(r.Context(), r.PathValue("id"), u.ID, req.ToUserID)
+	if err != nil {
+		m.wfErr(w, err)
+		return
+	}
+	m.record(r.Context(), u.ID, "instance.delegated-act", in.ID, "to "+req.ToUserID)
+	web.OK(w, in)
+}
+
+// addsign 加签（before/after，当前步审批人）。
+func (m *Module) addsign(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Position  string   `json:"position"`
+		Approvers []string `json:"approvers"`
+		Mode      string   `json:"mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.Err(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	u, err := m.facade.User(r)
+	if err != nil {
+		web.Err(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	in, err := m.store.AddSign(r.Context(), r.PathValue("id"), u.ID, req.Position, req.Approvers, req.Mode)
+	if err != nil {
+		m.wfErr(w, err)
+		return
+	}
+	m.record(r.Context(), u.ID, "instance.addsign", in.ID, req.Position)
+	web.OK(w, in)
+}
+
+// rejectTo 驳回至任意已过节点（当前步审批人）。
+func (m *Module) rejectTo(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		TargetStep int    `json:"target_step"`
+		Comment    string `json:"comment"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.Err(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	u, err := m.facade.User(r)
+	if err != nil {
+		web.Err(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	in, err := m.store.RejectTo(r.Context(), r.PathValue("id"), u.ID, req.TargetStep, req.Comment)
+	if err != nil {
+		m.wfErr(w, err)
+		return
+	}
+	m.record(r.Context(), u.ID, "instance.reject-to", in.ID, fmt.Sprintf("step %d round %d", req.TargetStep, in.Round))
+	m.fireFinish(r.Context(), in)
+	web.OK(w, in)
+}
+
+// myCC 被抄送列表（登录即可）。
+func (m *Module) myCC(w http.ResponseWriter, r *http.Request) {
+	u, err := m.facade.User(r)
+	if err != nil {
+		web.Err(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	list, err := m.store.ListCC(r.Context(), u.ID)
+	if err != nil {
+		web.Err(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	web.OK(w, map[string]any{"count": len(list), "items": list})
+}
+
+// wfErr 统一错误映射（六操作共用）。
+func (m *Module) wfErr(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrNotFound):
+		web.Err(w, http.StatusNotFound, "instance not found")
+	case errors.Is(err, ErrAlreadyDone):
+		web.Err(w, http.StatusConflict, "instance already finished")
+	case errors.Is(err, ErrNotApprover), errors.Is(err, ErrNotTurn):
+		web.Err(w, http.StatusForbidden, err.Error())
+	case errors.Is(err, ErrBadAddSign), errors.Is(err, ErrBadRejectTo),
+		errors.Is(err, ErrBadDelegate), errors.Is(err, ErrBadMode), errors.Is(err, ErrNoSteps):
+		web.Err(w, http.StatusBadRequest, err.Error())
+	default:
+		web.Err(w, http.StatusBadRequest, err.Error())
+	}
 }

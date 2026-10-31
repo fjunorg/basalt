@@ -169,7 +169,8 @@ func loadActions(db *gorm.DB, instanceID string) ([]workflow.Action, error) {
 func saveInstance(db *gorm.DB, in workflow.Instance) error {
 	return db.Model(&workflow.Instance{}).Where("id = ?", in.ID).
 		Select("BusinessKey", "Summary", "DefinitionID", "Steps", "StepIndex",
-			"CreatorID", "Status", "FinishedAt", "Approvers", "Mode").
+			"CreatorID", "Status", "FinishedAt", "Approvers", "Mode",
+			"Round", "CCUserIDs", "Delegations").
 		Updates(in).Error
 }
 
@@ -276,5 +277,75 @@ func (s *WorkflowDefStore) GetDefByKey(_ context.Context, key string) (workflow.
 func (s *WorkflowDefStore) ListDefs(_ context.Context) ([]workflow.Definition, error) {
 	var out []workflow.Definition
 	err := s.db.Order("`key`").Find(&out).Error
+	return list(out), err
+}
+
+// ---------- 六项操作扩展（事务内读-纯函数-写，与 MemStore 语义一致） ----------
+
+// wfApply 通用事务模板（读实例-纯函数-写回+动作）。
+func (s *WorkflowStore) wfApply(instanceID string, fn func(in workflow.Instance, actions []workflow.Action) (workflow.Instance, workflow.Action, error)) (workflow.Instance, error) {
+	var out workflow.Instance
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var in workflow.Instance
+		if err := tx.First(&in, "id = ?", instanceID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return workflow.ErrNotFound
+			}
+			return err
+		}
+		actions, err := loadActions(tx, instanceID)
+		if err != nil {
+			return err
+		}
+		next, action, err := fn(in, actions)
+		if err != nil {
+			return err
+		}
+		action.InstanceID = instanceID
+		if err := saveInstance(tx, next); err != nil {
+			return err
+		}
+		if err := tx.Create(&action).Error; err != nil {
+			return err
+		}
+		out = next
+		return nil
+	})
+	if err != nil {
+		return workflow.Instance{}, err
+	}
+	return out, nil
+}
+
+func (s *WorkflowStore) CC(_ context.Context, instanceID, actorID string, userIDs []string) (workflow.Instance, error) {
+	return s.wfApply(instanceID, func(in workflow.Instance, _ []workflow.Action) (workflow.Instance, workflow.Action, error) {
+		return workflow.ApplyCC(in, actorID, userIDs)
+	})
+}
+
+func (s *WorkflowStore) DelegateAct(_ context.Context, instanceID, fromUserID, toUserID string) (workflow.Instance, error) {
+	return s.wfApply(instanceID, func(in workflow.Instance, _ []workflow.Action) (workflow.Instance, workflow.Action, error) {
+		return workflow.ApplyDelegateAct(in, fromUserID, toUserID)
+	})
+}
+
+func (s *WorkflowStore) AddSign(_ context.Context, instanceID, actorID, position string, approvers []string, mode string) (workflow.Instance, error) {
+	return s.wfApply(instanceID, func(in workflow.Instance, _ []workflow.Action) (workflow.Instance, workflow.Action, error) {
+		return workflow.ApplyAddSign(in, actorID, position, approvers, mode)
+	})
+}
+
+func (s *WorkflowStore) RejectTo(_ context.Context, instanceID, actorID string, targetStep int, comment string) (workflow.Instance, error) {
+	return s.wfApply(instanceID, func(in workflow.Instance, actions []workflow.Action) (workflow.Instance, workflow.Action, error) {
+		return workflow.ApplyRejectTo(in, actorID, targetStep, comment)
+	})
+}
+
+// ListCC 被抄送列表（pending 与终态均可见）。
+func (s *WorkflowStore) ListCC(_ context.Context, userID string) ([]workflow.Instance, error) {
+	var out []workflow.Instance
+	// CCUserIDs 为 JSON 列，跨方言兼容用 LIKE 粗筛（"uid" 引号定界）
+	err := s.db.Where("\"cc_user_ids\" LIKE ?", "%\""+userID+"\"%").
+		Order("created_at DESC").Find(&out).Error
 	return list(out), err
 }

@@ -977,3 +977,41 @@ func (s *RoutedMenuStore) BoundRoleCount(ctx context.Context, menuID string) (in
 	}
 	return (&MenuStore{db: db}).BoundRoleCount(ctx, menuID)
 }
+
+// ---------- RoutedWorkflowStore 六项操作委托 ----------
+
+func (s *RoutedWorkflowStore) CC(ctx context.Context, instanceID, actorID string, userIDs []string) (workflow.Instance, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return workflow.Instance{}, err
+	}
+	return (&WorkflowStore{db: db}).CC(ctx, instanceID, actorID, userIDs)
+}
+func (s *RoutedWorkflowStore) DelegateAct(ctx context.Context, instanceID, fromUserID, toUserID string) (workflow.Instance, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return workflow.Instance{}, err
+	}
+	return (&WorkflowStore{db: db}).DelegateAct(ctx, instanceID, fromUserID, toUserID)
+}
+func (s *RoutedWorkflowStore) AddSign(ctx context.Context, instanceID, actorID, position string, approvers []string, mode string) (workflow.Instance, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return workflow.Instance{}, err
+	}
+	return (&WorkflowStore{db: db}).AddSign(ctx, instanceID, actorID, position, approvers, mode)
+}
+func (s *RoutedWorkflowStore) RejectTo(ctx context.Context, instanceID, actorID string, targetStep int, comment string) (workflow.Instance, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return workflow.Instance{}, err
+	}
+	return (&WorkflowStore{db: db}).RejectTo(ctx, instanceID, actorID, targetStep, comment)
+}
+func (s *RoutedWorkflowStore) ListCC(ctx context.Context, userID string) ([]workflow.Instance, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return (&WorkflowStore{db: db}).ListCC(ctx, userID)
+}
