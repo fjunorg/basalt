@@ -43,9 +43,11 @@ P1a 效率批次（竞品 Gap 分析第二批）：seed 演示数据集、xlsx �
   重审）；实例创建支持可选 steps 多步直发（向后兼容）。
 - **oplog（操作/API 日志与运行监控 v0.1）**：audit 链（合规取证）之外的
   日常排障查询面——异步采集不阻塞请求（非阻塞 chan 1024 缓冲、满则
-  丢弃计 dropped、后台 100ms/64 条批量落库、Stop 优雅排空）；用户
-  字段经完整验签还原（可信）；采样策略 `BASALT_OPLOG_MODE`
-  （all 默认 / write 仅变更 / off）；GET /api/v1/oplog/logs（分页+
+  丢弃计 dropped、后台 100ms/64 条批量聚合、Stop 优雅排空）；数据保留
+  默认内存环形缓冲（10000 条滚动覆盖，~2MB 上界），`BASALT_OPLOG_PERSIST=sqlite`
+  时落库（operation_logs 表，运维自管清理）；用户字段经完整验签还原
+  （可信）；采样策略 `BASALT_OPLOG_MODE`（all 默认 / write 仅变更 /
+  off 关闭采集但查询端点可用）；GET /api/v1/oplog/logs（分页+
   module/user/时间窗/状态码过滤，权限点 oplog:read）与
   GET /api/v1/oplog/metrics（90 秒环形秒桶：QPS/错误率）。
 - **Console（30 → 32 视图）**：系统日志与运行监控两页、用户导入导出与
