@@ -368,6 +368,7 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 
 	g.Handle(http.MethodPost, "/expenses", auth(m.createExpense))             // 申请类：登录即可
 	g.Handle(http.MethodGet, "/expenses", auth(dp.Inject(m.listExpenses)))    // mine；all 需 list 权限 + 数据范围
+	g.Handle(http.MethodGet, "/expenses/export", auth(req(PermExpenseList, m.exportExpenses)))
 	g.Handle(http.MethodPost, "/expenses/{id}/submit", auth(m.submitExpense)) // 申请类：仅本人
 
 	g.Handle(http.MethodGet, "/invoices", auth(req(PermInvoice, m.listInvoices)))

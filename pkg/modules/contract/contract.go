@@ -223,6 +223,7 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 	g := a.Router().Group("/api/v1/contracts")
 	g.Handle(http.MethodPost, "", auth(m.create)) // 登记本人合同：登录即可
 	g.Handle(http.MethodGet, "", auth(m.list))    // mine；all 需 read
+	g.Handle(http.MethodGet, "/export", auth(req(PermRead, m.exportContracts)))
 	g.Handle(http.MethodPost, "/{id}/submit", auth(m.submit))
 	g.Handle(http.MethodPost, "/{id}/finish", auth(req(PermManage, m.finish)))
 	return nil
