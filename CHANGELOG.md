@@ -4,6 +4,65 @@
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-31
+
+P1a 效率批次（竞品 Gap 分析第二批）：seed 演示数据集、xlsx 导入导出、S3 多云存储、工作流第一批六项审批操作、操作/API 日志与运行监控。
+
+### 新增
+
+- **basalt seed --demo（演示数据集初始化）**：组织三级部门树+岗位、数据
+  权限各档角色、跨部门用户×6、字典×3 类型、公告×3 状态、示例租户+套餐
+  绑定、财务三态单据+发票+预算+付款、公文合同多状态、知识库+文本文档×2
+  （向量化跳过——seed 零外部依赖，检索就绪度以切片为准）、Agent 定义×2、
+  通知模板三渠道、演示两步审批流；幂等（二次执行数据量不变）；安全门：
+  **prod 环境拒绝执行**（--force 显式覆盖）、仅 sqlite 存储（memory 提示）。
+  **演示账号统一口令 `Demo@2026`**（demo-ceo / demo-dev / demo-sale /
+  demo-viewer / demo-fin / demo-tenant，bcrypt MinCost 弱成本仅限演示）。
+- **kernel xlsx 轻量读写库**：标准库 zip+xml 实现，零新依赖（选型：不自引
+  excelize，避免 ~1.5MB 增量与 10 个传递依赖）；覆盖表头+行集子集，
+  Write 生成最小合法 OOXML（Excel/WPS 兼容），Read 解析 inlineStr/
+  sharedStrings/数字三形态；非目标：样式/多 sheet/图表。
+- **Excel 导入导出**：identity 用户导入导出（xlsx）；finance/contract
+  列表导出（金额元两位小数）。
+- **file S3 兼容多云存储驱动**：AWS Signature V4 自研实现（约 300 行
+  标准库，AWS 官方测试向量逐字节对齐，零 SDK 依赖）；PUT/GET/DELETE/
+  ListObjectsV2/预签名 GET（15min TTL）；path-style（MinIO/自建）与
+  virtual-host（OSS/COS）双风格；prefix 命名空间隔离；**混合存量路由**
+  ——Meta.Storage 标记后端（local|s3，存量空值兼容），上传恒写主存储、
+  下载/删除按标记路由，切换 S3 后旧本地文件继续可访问可删除（不强制
+  迁移）；`BASALT_FILE_S3_ENDPOINT` 配置即启用（默认本地不变）；
+  .env.example 补录 S3 七变量（共 25 项）；兼容矩阵与租户边界策略见
+  docs/file-s3.md（OSS/COS S3 兼容模式同驱动，七牛等非 S3 协议留
+  Storage 接口缝）。
+- **workflow 第一批六项审批操作**（Mem/GORM/Routed 三实现语义一致）：
+  依次审批 sequential（approvers 按序逐人，非轮到者 403）、抄送 cc
+  （追加去重幂等，被抄送只读知见）、委派 delegate-act（一次性代办，
+  本步本轮有效；与既有转办 delegate 永久转移语义对照见契约 §4）、
+  加签 addsign（before/after 双向，1–5 人，步骤上限 20）、驳回至已过
+  节点 reject-to（Round 轮次机制：旧轮动作失效、历史完整保留、重走
+  重审）；实例创建支持可选 steps 多步直发（向后兼容）。
+- **oplog（操作/API 日志与运行监控 v0.1）**：audit 链（合规取证）之外的
+  日常排障查询面——异步采集不阻塞请求（非阻塞 chan 1024 缓冲、满则
+  丢弃计 dropped、后台 100ms/64 条批量落库、Stop 优雅排空）；用户
+  字段经完整验签还原（可信）；采样策略 `BASALT_OPLOG_MODE`
+  （all 默认 / write 仅变更 / off）；GET /api/v1/oplog/logs（分页+
+  module/user/时间窗/状态码过滤，权限点 oplog:read）与
+  GET /api/v1/oplog/metrics（90 秒环形秒桶：QPS/错误率）。
+- **Console（30 → 32 视图）**：系统日志与运行监控两页、用户导入导出与
+  列表导出及存储后端展示配套、审批中心六项操作 UI（契约
+  workflow-api-contract v1，含审批轮次展示修正）；菜单种子补两页入口。
+- **serve 装配扩至 22 模块**（+oplog）。
+
+### 修复
+
+- notify：邮件/站内信标题变量渲染缺失。
+- workflow：Action.StepIndex 历史缺陷——旧实现记推进后索引，多步+
+  回退/代审组合必现 already acted 误判；改为动作发生时索引。
+
+### 变更
+
+- 二进制默认版本基线 bump 至 1.6.0（随发布 ldflags 覆盖）。
+
 ## [1.6.0] - 2026-10-31
 
 P0 平台完备性批次（竞品 Gap 分析 `deliverables/09-competitive-gap-analysis.md` 第一批 P0 落地）：通知中心、部门级数据权限、OAuth2/SSO、动态菜单、job cron、在线用户、租户套餐、错误码管理。
