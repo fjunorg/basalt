@@ -18,8 +18,10 @@ uploads/
 *.db-journal
 *.db-wal
 *.db-shm
+*.pid
 .env
 .env.*
+.env.local
 !.env.example
 
 # ===== 系统与编辑器 =====

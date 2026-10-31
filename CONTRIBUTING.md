@@ -4,7 +4,7 @@
 
 ## 环境要求
 
-- Go ≥ 1.23（`go version` 确认）
+- Go ≥ 1.26（`go version` 确认，与 go.mod 一致）
 - 本地验证一键化：`make test`（build + vet + test）
 
 ## 分支与提交
