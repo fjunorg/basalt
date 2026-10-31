@@ -1,0 +1,79 @@
+# Basalt Release：tag push（v*）→ 多平台二进制 + checksums + GitHub Release 自动发布。
+#
+# 与 ci.yml 触发互斥：ci 仅响应 branches: [main] 的 push 与 pull_request；
+# 本工作流仅响应 tag push（v*），二者无重叠路径。
+# Release notes 基底 = annotated tag message（release body 留空即取 tag 注释）。
+# 产物命名：basalt_<版本>_<os>_<arch>.tar.gz（版本取 tag 去掉 v 前缀）。
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # 创建 GitHub Release 所需
+
+jobs:
+  build:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # linux 三目标（信创矩阵）+ darwin 双架构
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: loong64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: Build and package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+            -o build/basalt ./cmd/basalt
+          mkdir -p dist
+          tar -czf "dist/basalt_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" \
+            -C build basalt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: basalt_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: checksums and GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+          pattern: basalt_*
+          merge-multiple: true
+      - name: Generate checksums
+        run: |
+          cd release
+          shasum -a 256 basalt_*.tar.gz > checksums.txt
+          cat checksums.txt
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # body 留空：默认以 annotated tag message 作为 release notes 基底
+          files: |
+            release/basalt_*.tar.gz
+            release/checksums.txt
+          fail_on_unmatched_files: true
