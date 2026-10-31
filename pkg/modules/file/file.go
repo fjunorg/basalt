@@ -32,18 +32,20 @@ const (
 
 var ErrNotFound = errors.New("file: not found")
 
-// Meta 是文件元信息。
+// Meta 是文件元信息。Storage 标记字节所在后端（local|s3，空=local
+// 存量兼容）——多云驱动切换后旧文件按标记路由，混合存量可访问。
 type Meta struct {
 	ID          string    `json:"id" gorm:"primaryKey;size:40"`
 	Name        string    `json:"name" gorm:"size:255"`
 	Size        int64     `json:"size"`
 	ContentType string    `json:"content_type" gorm:"size:128"`
 	StoragePath string    `json:"-" gorm:"size:512"`
+	Storage     string    `json:"storage,omitempty" gorm:"size:16"`
 	UploaderID  string    `json:"uploader_id" gorm:"size:40"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-// Store 抽象元信息持久化；Storage 抽象字节存放（本地磁盘先行）。
+// Store 抽象元信息持久化；Storage 抽象字节存放（本地/S3 兼容驱动）。
 type Store interface {
 	Create(ctx context.Context, m Meta) error
 	Delete(ctx context.Context, id string) error
@@ -56,6 +58,23 @@ type Storage interface {
 	Open(ctx context.Context, rel string) (io.ReadCloser, error)
 	Remove(ctx context.Context, rel string) error
 }
+
+// StorageURLer 是可选能力缝：支持预签名直链的后端（S3 驱动实现；
+// 本地存储无公网语义不支持，模块层 501 明确报错）。
+type StorageURLer interface {
+	PresignURL(ctx context.Context, rel string, ttl time.Duration) (string, error)
+}
+
+// StorageLister 是可选能力缝：对象级列表（S3 ListObjectsV2）。
+type StorageLister interface {
+	ListObjects(ctx context.Context, prefix string) ([]ObjectInfo, error)
+}
+
+// 存储后端标记（Meta.Storage 取值）。
+const (
+	StorageLocal = "local"
+	StorageS3    = "s3"
+)
 
 type MemStore struct {
 	mu sync.RWMutex
@@ -159,15 +178,49 @@ func safeName(name string) string {
 }
 
 type Module struct {
-	store   Store
-	storage Storage
-	facade  *identity.Facade
+	store Store
+	// storage 主存储（上传目标）；localFallback 本地回退——多云
+	// 切换后的混合存量语义：旧 Meta（Storage=local/空）仍从本地读。
+	storage       Storage
+	localFallback Storage
+	facade        *identity.Facade
 }
 
-func New(storage Storage) *Module { return &Module{store: NewMemStore(), storage: storage} }
+func New(storage Storage) *Module {
+	return &Module{store: NewMemStore(), storage: storage, localFallback: storage}
+}
 
 func NewWithStore(store Store, storage Storage) *Module {
-	return &Module{store: store, storage: storage}
+	return &Module{store: store, storage: storage, localFallback: storage}
+}
+
+// NewWithStorages 主存储 + 本地回退（S3 启用时的混合存量装配：
+// 新上传落 S3，切换前的本地旧文件继续可访问/可删除）。
+func NewWithStorages(store Store, primary, localFallback Storage) *Module {
+	return &Module{store: store, storage: primary, localFallback: localFallback}
+}
+
+// primaryName 主存储标记（写入新 Meta.Storage）。
+func (m *Module) primaryName() string {
+	if _, ok := m.storage.(*S3Storage); ok {
+		return StorageS3
+	}
+	return StorageLocal
+}
+
+// storageFor 按 Meta 标记路由存储后端。
+func (m *Module) storageFor(meta Meta) Storage {
+	switch meta.Storage {
+	case StorageS3:
+		if s, ok := m.storage.(*S3Storage); ok {
+			return s
+		}
+	default: // local 与空（存量）
+		if m.localFallback != nil {
+			return m.localFallback
+		}
+	}
+	return m.storage
 }
 
 func (*Module) Name() string           { return "file" }
@@ -195,6 +248,8 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 	g.Handle(http.MethodDelete, "/{id}", auth(req(PermDelete, m.deleteFile)))
 	// 下载：登录级（文件 ACL 随版本迭代）
 	g.Handle(http.MethodGet, "/{id}/download", auth(m.download))
+	// 预签名直链：S3 类后端客户端直连下载（服务端零流量）
+	g.Handle(http.MethodGet, "/{id}/url", auth(m.presignURL))
 	return nil
 }
 
@@ -224,7 +279,7 @@ func (m *Module) upload(w http.ResponseWriter, r *http.Request) {
 
 	id := newID()
 	name := safeName(header.Filename)
-	rel := filepath.Join(time.Now().UTC().Format("20060102"), id+"-"+name)
+	rel := filepath.ToSlash(filepath.Join(time.Now().UTC().Format("20060102"), id+"-"+name))
 	size, err := m.storage.Save(r.Context(), rel, f)
 	if err != nil {
 		web.Err(w, http.StatusInternalServerError, "save failed")
@@ -233,7 +288,8 @@ func (m *Module) upload(w http.ResponseWriter, r *http.Request) {
 	meta := Meta{
 		ID: id, Name: name, Size: size,
 		ContentType: header.Header.Get("Content-Type"),
-		StoragePath: rel, UploaderID: u.ID, CreatedAt: time.Now().UTC(),
+		StoragePath: rel, Storage: m.primaryName(),
+		UploaderID: u.ID, CreatedAt: time.Now().UTC(),
 	}
 	if err := m.store.Create(r.Context(), meta); err != nil {
 		_ = m.storage.Remove(r.Context(), rel)
@@ -249,7 +305,7 @@ func (m *Module) download(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusNotFound, "file not found")
 		return
 	}
-	rc, err := m.storage.Open(r.Context(), meta.StoragePath)
+	rc, err := m.storageFor(meta).Open(r.Context(), meta.StoragePath)
 	if err != nil {
 		web.Err(w, http.StatusNotFound, "file content missing")
 		return
@@ -284,6 +340,30 @@ func (m *Module) deleteFile(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	_ = m.storage.Remove(r.Context(), meta.StoragePath)
+	_ = m.storageFor(meta).Remove(r.Context(), meta.StoragePath)
 	web.OK(w, nil)
 }
+
+// presignURL 预签名直链（StorageURLer 能力缝；本地存储 501 明确）。
+func (m *Module) presignURL(w http.ResponseWriter, r *http.Request) {
+	meta, err := m.store.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		web.Err(w, http.StatusNotFound, "file not found")
+		return
+	}
+	urler, ok := m.storageFor(meta).(StorageURLer)
+	if !ok {
+		web.Err(w, http.StatusNotImplemented,
+			"storage backend does not support presigned URLs; use /download")
+		return
+	}
+	u, err := urler.PresignURL(r.Context(), meta.StoragePath, presignTTL)
+	if err != nil {
+		web.Err(w, http.StatusInternalServerError, "presign failed")
+		return
+	}
+	web.OK(w, map[string]any{"url": u, "expires_in": int(presignTTL.Seconds())})
+}
+
+// presignTTL 直链有效期：与访问令牌 TTL 量级对齐（15 分钟）。
+const presignTTL = 15 * time.Minute

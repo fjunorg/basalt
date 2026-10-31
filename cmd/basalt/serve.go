@@ -29,6 +29,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/menu"
 	"github.com/basalt-go/basalt/pkg/modules/notice"
 	"github.com/basalt-go/basalt/pkg/modules/notify"
+	"github.com/basalt-go/basalt/pkg/modules/oplog"
 	"github.com/basalt-go/basalt/pkg/modules/org"
 	"github.com/basalt-go/basalt/pkg/modules/rag"
 	"github.com/basalt-go/basalt/pkg/modules/sysconfig"
@@ -98,6 +99,17 @@ func newServeCmd() *cobra.Command {
 				return fmt.Errorf("upload dir: %w", err)
 			}
 
+			// S3 兼容多云驱动（可选，默认本地）：BASALT_FILE_S3_ENDPOINT
+			// 配置即启用（MinIO/OSS/COS 等 S3 兼容端点，凭据族见
+			// docs/file-s3.md）。localStorage 保留为混合存量回退——
+			// 切换前的旧文件（Meta.Storage=local/空）继续可访问。
+			filePrimary := file.Storage(localStorage)
+			if s3st, err := file.NewS3StorageFromEnv(os.Getenv); err == nil {
+				filePrimary = s3st
+			} else if !errors.Is(err, file.ErrS3NotConfigured) {
+				return fmt.Errorf("file s3 storage: %w", err)
+			}
+
 			// rag 模块依赖件：向量化客户端。BASALT_AI_PROVIDER_URL/
 			// BASALT_AI_EMBED_MODEL 未配置时 ragEmb 为 nil——知识库/
 			// 切片照常可用，向量化与检索在请求期明确报错（不静默降级）。
@@ -137,6 +149,9 @@ func newServeCmd() *cobra.Command {
 			var menuM *menu.Module
 			var tpgM *tenantpkg.Module
 			var ecM *errcode.Module
+			var oplogM *oplog.Module
+			// 操作日志采样模式：all（默认全量）| write（仅变更操作）| off。
+			oplogMode := os.Getenv("BASALT_OPLOG_MODE")
 			switch cfg.Storage {
 			case "sqlite":
 				dsn := cfg.DBDSN
@@ -175,7 +190,7 @@ func newServeCmd() *cobra.Command {
 					dictM = dict.NewWithStore(routed.DictStore())
 					sysM = sysconfig.NewWithStore(routed.SysConfigStore())
 					notM = notice.NewWithStore(routed.NoticeStore())
-					fileM = file.NewWithStore(routed.FileStore(), localStorage)
+					fileM = file.NewWithStorages(routed.FileStore(), filePrimary, localStorage)
 					jobM = job.NewWithStore(a.Logger(), routed.JobStore())
 					finM = finance.NewWithStore(routed.FinanceStore())
 					docM = document.NewWithStore(routed.DocumentStore())
@@ -191,7 +206,7 @@ func newServeCmd() *cobra.Command {
 					dictM = dict.NewWithStore(st.DictStore())
 					sysM = sysconfig.NewWithStore(st.SysConfigStore())
 					notM = notice.NewWithStore(st.NoticeStore())
-					fileM = file.NewWithStore(st.FileStore(), localStorage)
+					fileM = file.NewWithStorages(st.FileStore(), filePrimary, localStorage)
 					jobM = job.NewWithStore(a.Logger(), st.JobStore())
 					finM = finance.NewWithStore(st.FinanceStore())
 					docM = document.NewWithStore(st.DocumentStore())
@@ -208,6 +223,12 @@ func newServeCmd() *cobra.Command {
 				// 不入租户路由）：套餐/错误码。
 				tpgM = tenantpkg.NewWithStore(st.TenantPkgStore())
 				ecM = errcode.NewWithStore(st.ErrCodeStore())
+				// oplog：BASALT_OPLOG_PERSIST=sqlite 时落库，默认内存滚动。
+				if os.Getenv("BASALT_OPLOG_PERSIST") == "sqlite" {
+					oplogM = oplog.NewWithStore(oplogMode, st.OpLogStore())
+				} else {
+					oplogM = oplog.New(oplogMode)
+				}
 			case "postgres", "opengauss":
 				// openGauss 走 postgres 协议方言；驱动（gorm.io/driver/
 				// postgres 或信创社区驱动）接线后在此 OpenDB 注入即可，
@@ -221,7 +242,7 @@ func newServeCmd() *cobra.Command {
 				dictM = dict.New()
 				sysM = sysconfig.New()
 				notM = notice.New()
-				fileM = file.New(localStorage)
+				fileM = file.NewWithStorages(nil, filePrimary, localStorage)
 				jobM = job.New(a.Logger())
 				wfM = workflow.New()
 				finM = finance.New()
@@ -235,6 +256,7 @@ func newServeCmd() *cobra.Command {
 				menuM = menu.New()
 				tpgM = tenantpkg.New()
 				ecM = errcode.New()
+				oplogM = oplog.New(oplogMode)
 			}
 
 			// 内容安全审核器注入网关（两路径均保留审核能力：
@@ -267,11 +289,13 @@ func newServeCmd() *cobra.Command {
 			if u := os.Getenv("BASALT_AI_PROVIDER_URL"); u != "" {
 				gw.RegisterProvider(os.Getenv("BASALT_AI_PROVIDER_NAME"), u, os.Getenv("BASALT_AI_PROVIDER_KEY"))
 			}
+			// 全局操作日志采集中间件（覆盖全部 /api 请求；先注册于路由生效）。
+			a.UseHandler(oplogM.Middleware)
 			for _, m := range []app.Module{
 				idm, tnt, adm,
 				orgM, dictM, sysM, notM,
 				fileM, jobM,
-				wfM, finM, docM, conM, gw, ragM, safetyM, agentM, notifyM, menuM, tpgM, ecM,
+				wfM, finM, docM, conM, gw, ragM, safetyM, agentM, notifyM, menuM, tpgM, ecM, oplogM,
 			} {
 				if err := a.Registry().Register(m); err != nil {
 					return err
