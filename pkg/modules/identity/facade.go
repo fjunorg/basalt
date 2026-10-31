@@ -32,6 +32,10 @@ func NewFacade(users UserStore, roles RoleStore, issuer *TokenIssuer, logger *sl
 	return &Facade{users: users, roles: roles, issuer: issuer, logger: logger}
 }
 
+// Users/Roles 暴露底层存储（导入导出等管理面扩展用）。
+func (f *Facade) Users() UserStore { return f.users }
+func (f *Facade) Roles() RoleStore { return f.roles }
+
 // SetAuditSink 注入审计接收端（audit 模块 Init 时调用）。
 func (f *Facade) SetAuditSink(s AuditSink) { f.sink = s }
 

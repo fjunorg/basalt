@@ -34,6 +34,8 @@ func (h *Handler) RegisterRoutes(r web.Router) {
 
 	g.Handle(http.MethodPost, "/users", auth(req(PermUserCreate, h.createUser)))
 	g.Handle(http.MethodGet, "/users", auth(req(PermUserList, h.listUsers)))
+	g.Handle(http.MethodGet, "/users/export", auth(req(PermUserList, h.exportUsers)))
+	g.Handle(http.MethodPost, "/users/import", auth(req(PermUserCreate, h.importUsers)))
 	g.Handle(http.MethodGet, "/users/{id}", auth(req(PermUserGet, h.getUser)))
 	g.Handle(http.MethodPatch, "/users/{id}/status", auth(req(PermUserStatus, h.updateStatus)))
 	g.Handle(http.MethodPut, "/users/{id}/roles", auth(req(PermRoleManage, h.assignRoles)))
