@@ -30,9 +30,26 @@ func (h *Handler) exportUsers(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	// role_codes 列以角色 code 表达（导入按 code 反查——对称契约）；
+	// RoleIDs 是内部 ID（生产为不可读 hex），直接导出会破坏往返。
+	roles, err := h.f.Roles().List(r.Context())
+	if err != nil {
+		web.Err(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	roleCode := make(map[string]string, len(roles))
+	for _, ro := range roles {
+		roleCode[ro.ID] = ro.Code
+	}
 	rows := make([][]string, 0, len(users))
 	for _, u := range users {
-		rows = append(rows, []string{u.Username, u.Email, u.DeptID, strings.Join(u.RoleIDs, ","), ""})
+		codes := make([]string, 0, len(u.RoleIDs))
+		for _, id := range u.RoleIDs {
+			if c, ok := roleCode[id]; ok {
+				codes = append(codes, c)
+			}
+		}
+		rows = append(rows, []string{u.Username, u.Email, u.DeptID, strings.Join(codes, ","), ""})
 	}
 	data, err := xlsx.Build(userIOHeaders, rows)
 	if err != nil {
