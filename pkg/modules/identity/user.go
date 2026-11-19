@@ -2,11 +2,11 @@ package identity
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 )
 
 const (
@@ -143,10 +143,4 @@ func (s *MemUserStore) AssignRoles(_ context.Context, userID string, roleIDs []s
 
 // NewUserID 生成用户 ID。避免引入 uuid 依赖（信创最小依赖原则），
 // 128 位随机数 hex 编码，与 UUID v4 碰撞概率同级。
-func NewUserID() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		panic("identity: crypto/rand unavailable: " + err.Error())
-	}
-	return hex.EncodeToString(b)
-}
+func NewUserID() string { return randutil.Hex16() }

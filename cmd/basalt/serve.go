@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -37,6 +38,7 @@ import (
 	"github.com/basalt-go/basalt/pkg/modules/tenantpkg"
 	"github.com/basalt-go/basalt/pkg/modules/workflow"
 	"github.com/basalt-go/basalt/pkg/stores/gormstore"
+	"gorm.io/gorm"
 )
 
 // hasherFor 按配置构造审计链哈希器（SM3/SHA-256）。
@@ -77,6 +79,7 @@ func newServeCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Start the HTTP server",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			startTime := time.Now()
 			cfg := config.Load()
 			if addr != "" {
 				cfg.Addr = addr
@@ -85,8 +88,11 @@ func newServeCmd() *cobra.Command {
 				cfg.Env = env
 			}
 			a := app.New(cfg)
-			web.MountHealth(a.Router())
 			a.Router().MountSPA(console.FS())
+
+			// DB ping 函数（readiness 使用）——sqlite/postgres 分支填充；
+			// 纯内存演示模式下为 nil（readyz 仅返回模块级状态）。
+			var db *gorm.DB
 
 			// 上传目录（file 模块文件本体落此磁盘目录；元数据随所选
 			// 存储装配持久化，二者共同构成重启恢复态）。
@@ -162,6 +168,7 @@ func newServeCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("open storage %s: %w", dsn, err)
 				}
+				db = st.DB
 				chain, err := st.AuditChainStore(hasherFor(cfg))
 				if err != nil {
 					return fmt.Errorf("audit chain: %w", err)
@@ -301,6 +308,34 @@ func newServeCmd() *cobra.Command {
 					return err
 				}
 			}
+			// workflow v0.3 装配：审批人表达式解析 + 流转通知
+			wfM.SetResolver(&wfResolver{app: a})
+			wfM.SetNotifier(&wfNotifier{app: a})
+
+			// 健康探针（最后挂载，以便 DB ping 等就绪检查已可用）
+			pingers := map[string]func(ctx context.Context) error{}
+			if db != nil {
+				pingers["db"] = func(ctx context.Context) error {
+					sqlDB, err := db.DB()
+					if err != nil {
+						return err
+					}
+					return sqlDB.PingContext(ctx)
+				}
+			}
+			// 定时调度器心跳：1 秒粒度 tick，超过 30s 没 tick 判定卡死
+			if jobM != nil {
+				pingers["scheduler"] = func(_ context.Context) error {
+					return jobM.Manager().SchedulerPing()
+				}
+			}
+			web.MountHealth(a.Router(), web.HealthOptions{
+				Version:   version,
+				EmbedHash: embedHash,
+				StartTime: startTime,
+				Pingers:   pingers,
+			})
+
 			return a.Run(context.Background())
 		},
 	}

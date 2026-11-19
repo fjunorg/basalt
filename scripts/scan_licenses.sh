@@ -11,6 +11,10 @@ set -u
 
 cd "$(dirname "$0")/.."
 
+# LC_ALL=C：确保 awk 的 [A-Z] 字符范围按 ASCII 排序（macOS 默认 UTF-8
+# locale 下 a-z 也会落入 A-Z 比较区间，导致大小写转义逻辑全字母加 !）。
+export LC_ALL=C
+
 # 宽容许可白名单（OSI 认可且商用无义务冲突）。
 ALLOWED="MIT Apache-2.0 BSD-2-Clause BSD-3-Clause ISC BSD Unlicense Zlib MPL-2.0 PostgreSQL Python-2.0 Go-BSD 0BSD"
 
@@ -124,8 +128,8 @@ sort "$DIST" | uniq -c | sort -rn | sed 's/^/  /'
 
 if [ "$fail" -gt 0 ] || { [ "$unknown" -gt 0 ] && [ "${SCAN_ALLOW_UNKNOWN:-0}" != "1" ]; }; then
 	echo
-	echo "✗ 扫描未通过：$fail 个非白名单，$unknown 个未识别（未知项复核后可用 SCAN_ALLOW_UNKNOWN=1 豁免）"
+	echo "✗ 扫描未通过：${fail} 个非白名单，${unknown} 个未识别（未知项复核后可用 SCAN_ALLOW_UNKNOWN=1 豁免）"
 	exit 1
 fi
 echo
-echo "✓ 许可证扫描通过（白名单：$ALLOWED）"
+echo "✓ 许可证扫描通过（白名单：${ALLOWED}）"

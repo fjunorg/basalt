@@ -78,6 +78,15 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 func (*Module) Start(context.Context) error { return nil }
 func (*Module) Stop(context.Context) error  { return nil }
 
+// SendInbox 向指定用户发送站内信（供其他模块调用，如 workflow 流转通知）。
+// 直接操作 store，不走 HTTP。title/content 为最终文本（调用方负责渲染）。
+func (m *Module) SendInbox(ctx context.Context, userID, title, content string) error {
+	return m.store.CreateInbox(ctx, InboxMsg{
+		ID: newID(), UserID: userID, Title: title, Content: content,
+		CreatedAt: time.Now().UTC(),
+	})
+}
+
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		web.Err(w, http.StatusBadRequest, "invalid json body")
@@ -304,7 +313,7 @@ func (m *Module) Send(ctx context.Context, channel, receiver, templateCode strin
 			Content: content, CreatedAt: time.Now().UTC()}
 		sendErr = m.store.CreateInbox(ctx, msg)
 	case ChannelEmail:
-		n := &SMTPNotifier{Cfg: m.defaultSMTP()}
+		n := &SMTPNotifier{Cfg: m.defaultSMTP(ctx)}
 		if n.Cfg.ID == "" {
 			sendErr = ErrNoSMTP
 		} else {
@@ -342,8 +351,8 @@ func (m *Module) Send(ctx context.Context, channel, receiver, templateCode strin
 }
 
 // defaultSMTP 取列表首个账号（多账号择优随迭代演进）。
-func (m *Module) defaultSMTP() SMTPConfig {
-	cs, _ := m.store.ListSMTPs(context.Background())
+func (m *Module) defaultSMTP(ctx context.Context) SMTPConfig {
+	cs, _ := m.store.ListSMTPs(ctx)
 	if len(cs) == 0 {
 		return SMTPConfig{}
 	}
@@ -424,7 +433,7 @@ func (m *Module) resendRaw(ctx context.Context, old SendLog, actor string) (Send
 			Content: old.Content, CreatedAt: time.Now().UTC()}
 		sendErr = m.store.CreateInbox(ctx, msg)
 	case ChannelEmail:
-		n := &SMTPNotifier{Cfg: m.defaultSMTP()}
+		n := &SMTPNotifier{Cfg: m.defaultSMTP(ctx)}
 		if n.Cfg.ID == "" {
 			sendErr = ErrNoSMTP
 		} else {

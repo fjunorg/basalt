@@ -18,9 +18,9 @@ type JobStore struct{ db *gorm.DB }
 // 编译期接口对齐检查。
 var _ job.Store = (*JobStore)(nil)
 
-func (s *JobStore) GetJob(_ context.Context, id string) (job.Job, error) {
+func (s *JobStore) GetJob(ctx context.Context, id string) (job.Job, error) {
 	var j job.Job
-	err := s.db.First(&j, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&j, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return job.Job{}, job.ErrNotFound
 	}
@@ -29,8 +29,8 @@ func (s *JobStore) GetJob(_ context.Context, id string) (job.Job, error) {
 
 // SaveJob UPSERT 任务行（含定义字段，代码升级改调度时同步到库；
 // HTTP 动态任务全量定义亦经此持久化）。
-func (s *JobStore) SaveJob(_ context.Context, j job.Job) error {
-	return s.db.Clauses(clause.OnConflict{
+func (s *JobStore) SaveJob(ctx context.Context, j job.Job) error {
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"name", "description", "interval_sec", "cron_expr", "kind",
@@ -40,21 +40,21 @@ func (s *JobStore) SaveJob(_ context.Context, j job.Job) error {
 	}).Create(&j).Error
 }
 
-func (s *JobStore) ListJobs(_ context.Context) ([]job.Job, error) {
+func (s *JobStore) ListJobs(ctx context.Context) ([]job.Job, error) {
 	var out []job.Job
-	err := s.db.Order("id").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("id").Find(&out).Error
 	return list(out), err
 }
 
 // DeleteJob 删除任务（动态任务删除；运行记录随之外键无约束残留
 // 由 ListRuns 的 job_id 过滤自然隔离，保留历史可审计）。
-func (s *JobStore) DeleteJob(_ context.Context, id string) error {
-	return s.db.Where("id = ?", id).Delete(&job.Job{}).Error
+func (s *JobStore) DeleteJob(ctx context.Context, id string) error {
+	return s.db.WithContext(ctx).Where("id = ?", id).Delete(&job.Job{}).Error
 }
 
 // SaveRun 追加执行记录（Seq 由自增回填）。
-func (s *JobStore) SaveRun(_ context.Context, rec job.RunRecord) (job.RunRecord, error) {
-	if err := s.db.Create(&rec).Error; err != nil {
+func (s *JobStore) SaveRun(ctx context.Context, rec job.RunRecord) (job.RunRecord, error) {
+	if err := s.db.WithContext(ctx).Create(&rec).Error; err != nil {
 		return job.RunRecord{}, err
 	}
 	return rec, nil

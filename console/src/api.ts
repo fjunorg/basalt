@@ -1,8 +1,9 @@
 // 统一 API 封装：Bearer 注入、Envelope 解包、401 跳登录。
+// token 存 sessionStorage（关闭标签页即清除）—— localStorage 任何 XSS 可窃取。
 export const token = {
-  get: (): string => localStorage.getItem('basalt_token') || '',
-  set: (t: string) => localStorage.setItem('basalt_token', t),
-  clear: () => localStorage.removeItem('basalt_token'),
+  get: (): string => sessionStorage.getItem('basalt_token') || '',
+  set: (t: string) => sessionStorage.setItem('basalt_token', t),
+  clear: () => sessionStorage.removeItem('basalt_token'),
 }
 
 // 权限点快照：登录与用户信息刷新时写入，路由守卫与侧边菜单共用同一数据源。
@@ -38,31 +39,59 @@ export interface MeInfo {
 export interface ApiOptions {
   method?: string
   body?: unknown
+  /** 超时毫秒数，默认 15000；设为 0 禁用（流式端点用 SSE 自带超时） */
+  timeoutMs?: number
 }
 
-export async function api<T = unknown>(path: string, { method = 'GET', body }: ApiOptions = {}): Promise<T> {
-  const res = await fetch(path, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token.get() ? { Authorization: 'Bearer ' + token.get() } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
-  if (res.status === 401) {
-    token.clear()
-    location.hash = '#/login'
-    throw new Error('未登录或会话过期')
+// 默认请求超时：15 秒。流式 SSE 端点（chatStream / agentRunStream）各自独立设置，
+// 不走 api() 封装，所以不会被这个超时误伤。
+const DEFAULT_TIMEOUT_MS = 15_000
+
+export async function api<T = unknown>(path: string, { method = 'GET', body, timeoutMs = DEFAULT_TIMEOUT_MS }: ApiOptions = {}): Promise<T> {
+  const ctrl = new AbortController()
+  const timer = timeoutMs > 0 ? setTimeout(() => ctrl.abort(), timeoutMs) : undefined
+  try {
+    const res = await fetch(path, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token.get() ? { Authorization: 'Bearer ' + token.get() } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal,
+    })
+    if (res.status === 401) {
+      token.clear()
+      location.hash = '#/login'
+      throw new Error('未登录或会话过期')
+    }
+    const env = (await res.json().catch(() => ({ code: res.status, message: '响应解析失败' }))) as Envelope<T>
+    if (!res.ok || env.code !== 0) {
+      throw new Error(env.message || `请求失败(${res.status})`)
+    }
+    return env.data
+  } finally {
+    if (timer) clearTimeout(timer)
   }
-  const env = (await res.json().catch(() => ({ code: res.status, message: '响应解析失败' }))) as Envelope<T>
-  if (!res.ok || env.code !== 0) {
-    throw new Error(env.message || `请求失败(${res.status})`)
-  }
-  return env.data
 }
 
 // catch 分支错误信息提取（strict 模式 catch 变量为 unknown）。
 export const errMsg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
+
+// 校验 URL scheme 白名单（防 open redirect）。
+// 只允许 http/https；后端返回的跳转地址即使已校验，前端也应二次兜底。
+export function assertSafeRedirect(url: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error('无效的跳转地址')
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('不允许的跳转协议：' + parsed.protocol)
+  }
+  return url
+}
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'

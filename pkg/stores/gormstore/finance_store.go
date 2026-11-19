@@ -21,12 +21,12 @@ type FinanceStore struct{ db *gorm.DB }
 // 编译期接口对齐检查。
 var _ finance.Store = (*FinanceStore)(nil)
 
-func (s *FinanceStore) CreateExpense(_ context.Context, e finance.Expense) error {
-	return s.db.Create(&e).Error
+func (s *FinanceStore) CreateExpense(ctx context.Context, e finance.Expense) error {
+	return s.db.WithContext(ctx).Create(&e).Error
 }
 
-func (s *FinanceStore) UpdateExpense(_ context.Context, e finance.Expense) error {
-	res := s.db.Model(&finance.Expense{}).Where("id = ?", e.ID).
+func (s *FinanceStore) UpdateExpense(ctx context.Context, e finance.Expense) error {
+	res := s.db.WithContext(ctx).Model(&finance.Expense{}).Where("id = ?", e.ID).
 		Select("BusinessKey", "ApplicantID", "DeptID", "Amount", "Reason",
 			"Items", "InvoiceIDs", "Status", "WorkflowInstID").
 		Updates(e)
@@ -39,9 +39,9 @@ func (s *FinanceStore) UpdateExpense(_ context.Context, e finance.Expense) error
 	return nil
 }
 
-func (s *FinanceStore) GetExpense(_ context.Context, id string) (finance.Expense, error) {
+func (s *FinanceStore) GetExpense(ctx context.Context, id string) (finance.Expense, error) {
 	var e finance.Expense
-	err := s.db.First(&e, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&e, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return finance.Expense{}, finance.ErrNotFound
 	}
@@ -49,8 +49,8 @@ func (s *FinanceStore) GetExpense(_ context.Context, id string) (finance.Expense
 }
 
 // ListExpenses 按创建时间倒序；applicantID 为空表示全量（权限判定在 handler）。
-func (s *FinanceStore) ListExpenses(_ context.Context, applicantID string) ([]finance.Expense, error) {
-	q := s.db.Order("created_at DESC")
+func (s *FinanceStore) ListExpenses(ctx context.Context, applicantID string) ([]finance.Expense, error) {
+	q := s.db.WithContext(ctx).Order("created_at DESC")
 	if applicantID != "" {
 		q = q.Where("applicant_id = ?", applicantID)
 	}
@@ -59,25 +59,25 @@ func (s *FinanceStore) ListExpenses(_ context.Context, applicantID string) ([]fi
 	return list(out), err
 }
 
-func (s *FinanceStore) CreateInvoice(_ context.Context, iv finance.Invoice) error {
+func (s *FinanceStore) CreateInvoice(ctx context.Context, iv finance.Invoice) error {
 	var cnt int64
-	if err := s.db.Model(&finance.Invoice{}).Where("code = ?", iv.Code).Count(&cnt).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&finance.Invoice{}).Where("code = ?", iv.Code).Count(&cnt).Error; err != nil {
 		return err
 	}
 	if cnt > 0 {
 		return finance.ErrDupInvoice
 	}
-	return s.db.Create(&iv).Error
+	return s.db.WithContext(ctx).Create(&iv).Error
 }
 
-func (s *FinanceStore) ListInvoices(_ context.Context) ([]finance.Invoice, error) {
+func (s *FinanceStore) ListInvoices(ctx context.Context) ([]finance.Invoice, error) {
 	var out []finance.Invoice
-	err := s.db.Order("created_at").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("created_at").Find(&out).Error
 	return list(out), err
 }
 
-func (s *FinanceStore) SetBudget(_ context.Context, b finance.Budget) error {
-	return s.db.Clauses(clause.OnConflict{
+func (s *FinanceStore) SetBudget(ctx context.Context, b finance.Budget) error {
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "dept_id"}, {Name: "period"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			// Updated 字段无显式 column tag，GORM 列名为 updated
@@ -86,9 +86,9 @@ func (s *FinanceStore) SetBudget(_ context.Context, b finance.Budget) error {
 	}).Create(&b).Error
 }
 
-func (s *FinanceStore) GetBudget(_ context.Context, deptID, period string) (finance.Budget, error) {
+func (s *FinanceStore) GetBudget(ctx context.Context, deptID, period string) (finance.Budget, error) {
 	var b finance.Budget
-	err := s.db.First(&b, "dept_id = ? AND period = ?", deptID, period).Error
+	err := s.db.WithContext(ctx).First(&b, "dept_id = ? AND period = ?", deptID, period).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return finance.Budget{}, finance.ErrNotFound
 	}
@@ -97,8 +97,8 @@ func (s *FinanceStore) GetBudget(_ context.Context, deptID, period string) (fina
 
 // AddBudgetUsed 原子累加已用额度；预算行不存在时报 ErrNotFound
 // （与 MemStore 语义一致：占用仅发生在已设置预算的部门）。
-func (s *FinanceStore) AddBudgetUsed(_ context.Context, deptID, period string, delta int64) error {
-	res := s.db.Model(&finance.Budget{}).
+func (s *FinanceStore) AddBudgetUsed(ctx context.Context, deptID, period string, delta int64) error {
+	res := s.db.WithContext(ctx).Model(&finance.Budget{}).
 		Where("dept_id = ? AND period = ?", deptID, period).
 		Updates(map[string]any{
 			"used":    gorm.Expr("used + ?", delta),
@@ -113,18 +113,18 @@ func (s *FinanceStore) AddBudgetUsed(_ context.Context, deptID, period string, d
 	return nil
 }
 
-func (s *FinanceStore) ListBudgets(_ context.Context) ([]finance.Budget, error) {
+func (s *FinanceStore) ListBudgets(ctx context.Context) ([]finance.Budget, error) {
 	var out []finance.Budget
-	err := s.db.Order("dept_id, period").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("dept_id, period").Find(&out).Error
 	return list(out), err
 }
 
-func (s *FinanceStore) CreatePayment(_ context.Context, p finance.Payment) error {
-	return s.db.Create(&p).Error
+func (s *FinanceStore) CreatePayment(ctx context.Context, p finance.Payment) error {
+	return s.db.WithContext(ctx).Create(&p).Error
 }
 
-func (s *FinanceStore) UpdatePayment(_ context.Context, p finance.Payment) error {
-	res := s.db.Model(&finance.Payment{}).Where("id = ?", p.ID).
+func (s *FinanceStore) UpdatePayment(ctx context.Context, p finance.Payment) error {
+	res := s.db.WithContext(ctx).Model(&finance.Payment{}).Where("id = ?", p.ID).
 		Select("ExpenseID", "Payee", "Amount", "Status").
 		Updates(p)
 	if res.Error != nil {
@@ -136,8 +136,8 @@ func (s *FinanceStore) UpdatePayment(_ context.Context, p finance.Payment) error
 	return nil
 }
 
-func (s *FinanceStore) ListPayments(_ context.Context) ([]finance.Payment, error) {
+func (s *FinanceStore) ListPayments(ctx context.Context) ([]finance.Payment, error) {
 	var out []finance.Payment
-	err := s.db.Order("created_at").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("created_at").Find(&out).Error
 	return list(out), err
 }

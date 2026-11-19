@@ -64,7 +64,10 @@ func newSeedCmd() *cobra.Command {
 			for _, line := range report {
 				fmt.Println(" -", line)
 			}
-			fmt.Printf("test accounts password: %s\n", demoPass)
+			fmt.Println()
+			fmt.Println("⚠️  demo accounts are seeded with the default password below.")
+			fmt.Printf("   DEFAULT PASSWORD: %s\n", demoPass)
+			fmt.Println("   CHANGE IT immediately after first login (Settings → System Config)!")
 			return nil
 		},
 	}
@@ -120,7 +123,7 @@ func seedDemo(ctx context.Context, st *gormstore.Stores) []string {
 	if roles, _ := st.RoleStore().List(ctx); len(roles) <= 1 { // 仅内置 admin
 		hash, _ := bcrypt.GenerateFromPassword([]byte(demoPass), bcrypt.MinCost)
 		scopeRoles := []identity.Role{
-			{ID: "demo-r-all", Code: "demo-scope-all", Name: "示例·全部数据", Permissions: []string{"org:dept:list", "finance:expense:list"}, DataScope: "all"},
+			{ID: "demo-r-all", Code: "demo-scope-all", Name: "示例·全部数据", Permissions: []string{"*"}, DataScope: "all"},
 			{ID: "demo-r-dept", Code: "demo-scope-dept", Name: "示例·本部门", Permissions: []string{"org:dept:list"}, DataScope: "dept"},
 			{ID: "demo-r-self", Code: "demo-scope-self", Name: "示例·仅本人", Permissions: []string{"finance:expense:apply"}, DataScope: "self"},
 			{ID: "demo-r-viewer", Code: "demo-viewer", Name: "示例·访客", Permissions: []string{"notice:list", "dict:type:list"}},

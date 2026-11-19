@@ -17,21 +17,21 @@ type AISafetyStore struct{ db *gorm.DB }
 // 编译期接口对齐检查。
 var _ aisafety.Store = (*AISafetyStore)(nil)
 
-func (s *AISafetyStore) CreateTerm(_ context.Context, t aisafety.Term) error {
+func (s *AISafetyStore) CreateTerm(ctx context.Context, t aisafety.Term) error {
 	var cnt int64
-	if err := s.db.Model(&aisafety.Term{}).Where("word = ?", t.Word).Count(&cnt).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&aisafety.Term{}).Where("word = ?", t.Word).Count(&cnt).Error; err != nil {
 		return err
 	}
 	if cnt > 0 {
 		return aisafety.ErrDupWord
 	}
-	return s.db.Create(&t).Error
+	return s.db.WithContext(ctx).Create(&t).Error
 }
 
-func (s *AISafetyStore) UpdateTerm(_ context.Context, t aisafety.Term) error {
+func (s *AISafetyStore) UpdateTerm(ctx context.Context, t aisafety.Term) error {
 	// 先确认存在性（与 MemStore 语义一致：不存在 → ErrNotFound 优先）
 	var cur aisafety.Term
-	if err := s.db.First(&cur, "id = ?", t.ID).Error; err != nil {
+	if err := s.db.WithContext(ctx).First(&cur, "id = ?", t.ID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return aisafety.ErrNotFound
 		}
@@ -39,14 +39,14 @@ func (s *AISafetyStore) UpdateTerm(_ context.Context, t aisafety.Term) error {
 	}
 	if t.Word != cur.Word {
 		var cnt int64
-		if err := s.db.Model(&aisafety.Term{}).Where("word = ?", t.Word).Count(&cnt).Error; err != nil {
+		if err := s.db.WithContext(ctx).Model(&aisafety.Term{}).Where("word = ?", t.Word).Count(&cnt).Error; err != nil {
 			return err
 		}
 		if cnt > 0 {
 			return aisafety.ErrDupWord
 		}
 	}
-	res := s.db.Model(&aisafety.Term{}).Where("id = ?", t.ID).
+	res := s.db.WithContext(ctx).Model(&aisafety.Term{}).Where("id = ?", t.ID).
 		Select("Word", "Category", "Replacement", "Enabled").
 		Updates(t)
 	if res.Error != nil {
@@ -58,8 +58,8 @@ func (s *AISafetyStore) UpdateTerm(_ context.Context, t aisafety.Term) error {
 	return nil
 }
 
-func (s *AISafetyStore) DeleteTerm(_ context.Context, id string) error {
-	res := s.db.Delete(&aisafety.Term{}, "id = ?", id)
+func (s *AISafetyStore) DeleteTerm(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Delete(&aisafety.Term{}, "id = ?", id)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -69,47 +69,47 @@ func (s *AISafetyStore) DeleteTerm(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *AISafetyStore) ListTerms(_ context.Context) ([]aisafety.Term, error) {
+func (s *AISafetyStore) ListTerms(ctx context.Context) ([]aisafety.Term, error) {
 	var out []aisafety.Term
-	err := s.db.Order("word").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("word").Find(&out).Error
 	return list(out), err
 }
 
-func (s *AISafetyStore) GetPolicy(_ context.Context, tenantID string) (aisafety.Policy, error) {
+func (s *AISafetyStore) GetPolicy(ctx context.Context, tenantID string) (aisafety.Policy, error) {
 	var p aisafety.Policy
-	err := s.db.First(&p, "tenant_id = ?", tenantID).Error
+	err := s.db.WithContext(ctx).First(&p, "tenant_id = ?", tenantID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return aisafety.Policy{}, aisafety.ErrNotFound
 	}
 	return p, err
 }
 
-func (s *AISafetyStore) SetPolicy(_ context.Context, p aisafety.Policy) error {
-	return s.db.Clauses(clause.OnConflict{
+func (s *AISafetyStore) SetPolicy(ctx context.Context, p aisafety.Policy) error {
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "tenant_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"action", "updated_at"}),
 	}).Create(&p).Error
 }
 
-func (s *AISafetyStore) ListPolicies(_ context.Context) ([]aisafety.Policy, error) {
+func (s *AISafetyStore) ListPolicies(ctx context.Context) ([]aisafety.Policy, error) {
 	var out []aisafety.Policy
-	err := s.db.Order("tenant_id").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("tenant_id").Find(&out).Error
 	return list(out), err
 }
 
-func (s *AISafetyStore) GetSettings(_ context.Context) (aisafety.Settings, error) {
+func (s *AISafetyStore) GetSettings(ctx context.Context) (aisafety.Settings, error) {
 	var st aisafety.Settings
 	// 固定单行：不存在时返回默认开启（与 MemStore 初始态一致）
-	err := s.db.First(&st, "id = ?", aisafety.SettingsID).Error
+	err := s.db.WithContext(ctx).First(&st, "id = ?", aisafety.SettingsID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return aisafety.Settings{ID: aisafety.SettingsID, Enabled: true}, nil
 	}
 	return st, err
 }
 
-func (s *AISafetyStore) SaveSettings(_ context.Context, st aisafety.Settings) error {
+func (s *AISafetyStore) SaveSettings(ctx context.Context, st aisafety.Settings) error {
 	st.ID = aisafety.SettingsID
-	return s.db.Clauses(clause.OnConflict{
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"enabled", "updated"}), // Updated 字段列名为 updated（无显式 tag）
 	}).Create(&st).Error

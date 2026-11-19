@@ -30,25 +30,25 @@ func NewQuotaStore(db *gorm.DB) (*QuotaStore, error) {
 	return &QuotaStore{db: db}, nil
 }
 
-func (s *QuotaStore) GetLimit(_ context.Context, tenantID string) (int64, bool) {
+func (s *QuotaStore) GetLimit(ctx context.Context, tenantID string) (int64, bool) {
 	var row quotaLimit
-	err := s.db.First(&row, "tenant_id = ?", tenantID).Error
+	err := s.db.WithContext(ctx).First(&row, "tenant_id = ?", tenantID).Error
 	if err != nil {
 		return 0, false
 	}
 	return row.LimitTok, true
 }
 
-func (s *QuotaStore) SetLimit(_ context.Context, tenantID string, limit int64) error {
-	return s.db.Clauses(clause.OnConflict{
+func (s *QuotaStore) SetLimit(ctx context.Context, tenantID string, limit int64) error {
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "tenant_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"limit_tokens"}),
 	}).Create(&quotaLimit{TenantID: tenantID, LimitTok: limit}).Error
 }
 
-func (s *QuotaStore) GetUsage(_ context.Context, tenantID, period string) (int64, bool) {
+func (s *QuotaStore) GetUsage(ctx context.Context, tenantID, period string) (int64, bool) {
 	var row quotaUsage
-	err := s.db.First(&row, "tenant_id = ? AND period = ?", tenantID, period).Error
+	err := s.db.WithContext(ctx).First(&row, "tenant_id = ? AND period = ?", tenantID, period).Error
 	if err != nil {
 		return 0, false
 	}
@@ -56,8 +56,8 @@ func (s *QuotaStore) GetUsage(_ context.Context, tenantID, period string) (int64
 }
 
 // AddUsage 以原子 UPSERT 累加，避免读-改-写竞争。
-func (s *QuotaStore) AddUsage(_ context.Context, tenantID, period string, delta int64) error {
-	return s.db.Clauses(clause.OnConflict{
+func (s *QuotaStore) AddUsage(ctx context.Context, tenantID, period string, delta int64) error {
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "tenant_id"}, {Name: "period"}},
 		DoUpdates: clause.Assignments(map[string]any{"used_tokens": gorm.Expr("used_tokens + ?", delta)}),
 	}).Create(&quotaUsage{TenantID: tenantID, Period: period, Used: delta}).Error

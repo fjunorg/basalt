@@ -17,13 +17,13 @@ package notify
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 )
 
 const Version = "0.1.0"
@@ -401,8 +401,4 @@ func Render(tpl string, vars map[string]string) string {
 	return out
 }
 
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
-}
+func newID() string { return randutil.Hex16() }

@@ -1,154 +1,197 @@
 /**
- * Semi Design 视觉对齐层 —— 设计 token 单一来源
+ * 设计 token 单一来源 —— ApeAdmin 风格视觉层
  *
- * 真源（每个 token 标注出处）：
- *  - 色板与语义色：semi-design 官方仓库 packages/semi-theme-default/scss/
- *    _palette.scss 与 global.scss（亮色模式，RGB 值转 hex 逐条对照）
- *  - 字体栈 / 圆角 / 阴影：同上 global.scss
- *  本文件分两层：
- *  ① --semi-* ：Semi 原生 token（含色板换算值）
- *  ② --el-*   ：Element Plus 变量映射（组件按需样式引用这些变量，
- *                实现全局观感对齐，不侵入组件级样式）
+ * 视觉参照：ApeAdmin（https://github.com/KevinLiss/ApeAdmin）
+ *  - 主色 #5A67F5 紫蓝，品牌渐变 #5A67F5 → #47D8FF
+ *  - 页面底 #EFF3F9，卡片纯白、大圆角、柔和投影
+ *  - 语义色：success #67C100 / warning #E56809 / danger #DC0808 / info #3EBCB9
+ *
+ * 分三层：
+ *  ① --ape-*  ：本层自有 token（唯一真源，新增样式必须引用这里）
+ *  ② --semi-* ：历史变量名别名映射（大量存量页面仍引用，保持兼容）
+ *  ③ --el-*   ：Element Plus 变量映射
  */
 
 :root {
-  /* ===== ① Semi 原生 token ===== */
+  /* ===== ① ApeAdmin 风格 token ===== */
+  --ape-primary: #5a67f5;
+  --ape-primary-hover: #4755e6;
+  --ape-primary-light: #edf0fe;
+  --ape-primary-soft: rgba(90, 103, 245, 0.08);
+  --ape-grad-from: #5a67f5;
+  --ape-grad-to: #47d8ff;
 
-  /* 色板（_palette.scss，RGB→hex） */
-  --semi-blue-0: #eaf5ff;   /* 234,245,255 */
-  --semi-blue-1: #cbe7fe;   /* 203,231,254 */
-  --semi-blue-2: #98cdfd;   /* 152,205,253 */
-  --semi-blue-5: #0064fa;   /* 0,100,250 */
-  --semi-blue-6: #0062d6;   /* 0,98,214 */
-  --semi-blue-7: #004fb3;   /* 0,79,179 */
-  --semi-green-0: #ecf7ec;  /* 236,247,236 */
-  --semi-green-5: #3bb346;  /* 59,179,70 */
-  --semi-green-6: #30953b;  /* 48,149,59 */
-  --semi-orange-0: #fff8ea; /* 255,248,234 */
-  --semi-orange-5: #fc8800; /* 252,136,0 */
-  --semi-red-0: #fef2ed;    /* 254,242,237 */
-  --semi-red-5: #f93920;    /* 249,57,32 */
-  --semi-grey-0: #f9f9f9;   /* 249,249,249 */
-  --semi-grey-1: #e6e8ea;   /* 230,232,234 */
-  --semi-grey-2: #c6cacd;   /* 198,202,205 */
-  --semi-grey-9: #1c1f23;   /* 28,31,35 */
+  --ape-success: #67c100;
+  --ape-success-light: #e9f5db;
+  --ape-warning: #e56809;
+  --ape-warning-light: #fcf0d9;
+  --ape-danger: #dc0808;
+  --ape-danger-light: #fbd7d7;
+  --ape-info: #3ebcb9;
+  --ape-info-light: #e9f5f5;
 
-  /* 语义色（global.scss） */
-  --semi-color-primary: var(--semi-blue-5);        /* rgba(blue-5) 主色 */
-  --semi-color-primary-hover: var(--semi-blue-6);
-  --semi-color-primary-active: var(--semi-blue-7);
-  --semi-color-primary-disabled: var(--semi-blue-2);
-  --semi-color-primary-light: var(--semi-blue-0);  /* 浅版主色（背景） */
-  --semi-color-success: var(--semi-green-5);
-  --semi-color-warning: var(--semi-orange-5);
-  --semi-color-danger: var(--semi-red-5);
-  --semi-color-bg-0: #ffffff;                       /* bg-0..4 全白 */
-  --semi-color-nav-bg: #ffffff;                     /* 导航背景（浅色侧边栏） */
-  --semi-color-text-0: rgba(28, 31, 35, 1);         /* text-0 = grey-9 100% */
-  --semi-color-text-1: rgba(28, 31, 35, .8);
-  --semi-color-text-2: rgba(28, 31, 35, .62);
-  --semi-color-text-3: rgba(28, 31, 35, .35);
-  --semi-color-border: rgba(28, 31, 35, .08);       /* 默认描边（极浅灰） */
-  --semi-color-fill-0: rgba(28, 31, 35, .05);       /* 填充-默认（悬浮底） */
-  --semi-color-fill-1: rgba(28, 31, 35, .09);
+  --ape-body-bg: #eff3f9;
+  --ape-card-bg: #ffffff;
+  --ape-nav-bg: #ffffff;
+  --ape-border: #e9edf3;
+  --ape-border-light: #f0f2f5;
 
-  /* 字体栈（global.scss font-family，首位 Inter 未内嵌则系统回退） */
-  --semi-font-family: 'Inter', -apple-system, BlinkMacSystemFont,
-    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI',
-    'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --ape-text: #2b2b2b;
+  --ape-text-regular: #5a6273;
+  --ape-text-secondary: #909399;
+  --ape-text-placeholder: #c0c4cc;
 
-  /* 圆角（global.scss --semi-border-radius-*） */
-  --semi-border-radius-small: 3px;   /* button/tag/tabs 等常用 */
-  --semi-border-radius-medium: 6px;  /* dropdown/card/modal 类菜单与容器 */
-  --semi-border-radius-large: 12px;  /* modal */
+  --ape-font: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
-  /* 阴影（global.scss --semi-shadow-elevated） */
-  --semi-shadow-elevated: 0 0 1px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .1);
+  --ape-radius-sm: 5px;
+  --ape-radius: 8px;
+  --ape-radius-lg: 20px;
 
-  /* ===== ② Element Plus 变量映射 ===== */
+  --ape-shadow-card: 0 0 20px rgba(8, 21, 66, 0.05);
+  --ape-shadow-card-hover: 0 0 40px rgba(8, 21, 66, 0.09);
+  --ape-shadow-pop: 0 8px 32px rgba(8, 21, 66, 0.12);
 
-  /* 主色系：EP light-3=悬浮、dark-2=按下，对齐 Semi hover 变深/active 更深语义 */
-  --el-color-primary: var(--semi-color-primary);
-  --el-color-primary-light-3: var(--semi-color-primary-hover);
-  --el-color-primary-light-5: var(--semi-color-primary-disabled);
-  --el-color-primary-light-7: var(--semi-blue-1);
-  --el-color-primary-light-8: var(--semi-blue-1);
-  --el-color-primary-light-9: var(--semi-color-primary-light);
-  --el-color-primary-dark-2: var(--semi-color-primary-active);
+  --ape-sidebar-w: 232px;
+  --ape-sidebar-collapsed-w: 76px;
+  --ape-header-h: 64px;
 
-  /* 功能色（EP error 对应 Semi danger） */
-  --el-color-success: var(--semi-color-success);
-  --el-color-success-light-9: var(--semi-green-0);
-  --el-color-warning: var(--semi-color-warning);
-  --el-color-warning-light-9: var(--semi-orange-0);
-  --el-color-error: var(--semi-color-danger);
-  --el-color-error-light-9: var(--semi-red-0);
-  --el-color-danger: var(--semi-color-danger);
-  --el-color-danger-light-9: var(--semi-red-0);
-  --el-color-info: var(--semi-color-text-1);
-  --el-color-info-light-9: var(--semi-grey-0);
+  /* ===== ② 存量变量别名（保持既有页面零改动） ===== */
+  --semi-color-primary: var(--ape-primary);
+  --semi-color-primary-hover: var(--ape-primary-hover);
+  --semi-color-primary-active: var(--ape-primary-hover);
+  --semi-color-primary-disabled: var(--ape-primary-light);
+  --semi-color-primary-light: var(--ape-primary-light);
+  --semi-color-success: var(--ape-success);
+  --semi-color-warning: var(--ape-warning);
+  --semi-color-danger: var(--ape-danger);
+  --semi-color-bg-0: var(--ape-card-bg);
+  --semi-color-nav-bg: var(--ape-nav-bg);
+  --semi-color-text-0: var(--ape-text);
+  --semi-color-text-1: var(--ape-text-regular);
+  --semi-color-text-2: var(--ape-text-secondary);
+  --semi-color-text-3: var(--ape-text-placeholder);
+  --semi-color-border: var(--ape-border);
+  --semi-color-fill-0: rgba(28, 31, 35, 0.05);
+  --semi-color-fill-1: rgba(28, 31, 35, 0.09);
+  --semi-grey-0: var(--ape-body-bg);
+  --semi-grey-1: var(--ape-border);
+  --semi-grey-2: var(--ape-text-placeholder);
+  --semi-grey-9: var(--ape-text);
+  --semi-font-family: var(--ape-font);
+  --semi-border-radius-small: var(--ape-radius-sm);
+  --semi-border-radius-medium: var(--ape-radius);
+  --semi-border-radius-large: var(--ape-radius-lg);
+  --semi-shadow-elevated: var(--ape-shadow-pop);
+  --semi-transition-fast: 200ms;
+  --semi-transition-faster: 100ms;
+  --semi-transition-fn: cubic-bezier(0.62, 0.05, 0.36, 0.95);
 
-  /* 中性色（文本四级 + 边框/填充） */
-  --el-text-color-primary: var(--semi-color-text-0);
-  --el-text-color-regular: var(--semi-color-text-1);
-  --el-text-color-secondary: var(--semi-color-text-2);
-  --el-text-color-placeholder: var(--semi-color-text-3);
-  --el-text-color-disabled: var(--semi-color-text-3);
-  --el-border-color: var(--semi-color-border);
-  --el-border-color-light: var(--semi-color-border);
-  --el-border-color-lighter: var(--semi-color-border);
-  --el-border-color-extra-light: var(--semi-color-fill-0);
-  --el-fill-color: var(--semi-color-fill-0);
-  --el-fill-color-light: var(--semi-grey-0);
-  --el-fill-color-lighter: var(--semi-grey-0);
-  --el-fill-color-blank: #ffffff;
-  --el-bg-color: var(--semi-color-bg-0);
-  --el-bg-color-page: var(--semi-grey-0);
-  --el-bg-color-overlay: #ffffff;
+  /* ===== ③ Element Plus 映射 ===== */
+  --el-color-primary: var(--ape-primary);
+  --el-color-primary-light-3: #7f8af8;
+  --el-color-primary-light-5: #a5acfa;
+  --el-color-primary-light-7: #c9cdfc;
+  --el-color-primary-light-8: #dbdffd;
+  --el-color-primary-light-9: var(--ape-primary-light);
+  --el-color-primary-dark-2: var(--ape-primary-hover);
 
-  /* 字体与圆角、阴影 */
-  --el-font-family: var(--semi-font-family);
-  --el-border-radius-base: var(--semi-border-radius-small);  /* 3px：button/input/tag */
-  --el-border-radius-small: 2px;
-  --el-border-radius-round: var(--semi-border-radius-medium); /* 卡片/dialog 观感 6px */
-  --el-box-shadow: var(--semi-shadow-elevated);
-  --el-box-shadow-light: 0 0 1px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .06);
-  --el-box-shadow-lighter: 0 0 1px rgba(0, 0, 0, .2), 0 2px 8px rgba(0, 0, 0, .04);
+  --el-color-success: var(--ape-success);
+  --el-color-success-light-9: var(--ape-success-light);
+  --el-color-warning: var(--ape-warning);
+  --el-color-warning-light-9: var(--ape-warning-light);
+  --el-color-danger: var(--ape-danger);
+  --el-color-danger-light-9: var(--ape-danger-light);
+  --el-color-error: var(--ape-danger);
+  --el-color-error-light-9: var(--ape-danger-light);
+  --el-color-info: var(--ape-text-secondary);
+  --el-color-info-light-9: #f4f4f5;
 
-  /* ===== 全局基础 ===== */
-  font-family: var(--semi-font-family);
+  --el-text-color-primary: var(--ape-text);
+  --el-text-color-regular: var(--ape-text-regular);
+  --el-text-color-secondary: var(--ape-text-secondary);
+  --el-text-color-placeholder: var(--ape-text-placeholder);
+  --el-text-color-disabled: var(--ape-text-placeholder);
+  --el-border-color: var(--ape-border);
+  --el-border-color-light: var(--ape-border);
+  --el-border-color-lighter: var(--ape-border-light);
+  --el-border-color-extra-light: var(--ape-border-light);
+  --el-fill-color: #f5f7fa;
+  --el-fill-color-light: #f5f7fa;
+  --el-fill-color-lighter: #fafbfc;
+  --el-fill-color-blank: var(--ape-card-bg);
+  --el-bg-color: var(--ape-card-bg);
+  --el-bg-color-page: var(--ape-body-bg);
+  --el-bg-color-overlay: var(--ape-card-bg);
+
+  --el-font-family: var(--ape-font);
+  --el-font-size-base: 14px;
+  --el-border-radius-base: var(--ape-radius);
+  --el-border-radius-small: var(--ape-radius-sm);
+  --el-border-radius-round: var(--ape-radius-lg);
+  --el-box-shadow: var(--ape-shadow-pop);
+  --el-box-shadow-light: 0 0 20px rgba(8, 21, 66, 0.05);
+  --el-box-shadow-lighter: 0 0 12px rgba(8, 21, 66, 0.04);
+  --el-transition-duration: var(--semi-transition-fast);
+  --el-transition-duration-fast: var(--semi-transition-faster);
+
+  font-family: var(--ape-font);
   -webkit-font-smoothing: antialiased;
-  background: var(--semi-grey-0); /* 页面最底层背景（Semi 管理台浅灰底） */
-  color: var(--semi-color-text-0);
+  color: var(--ape-text);
+  background: var(--ape-body-bg);
 }
 
-/* 卡片/对话框圆角对齐 Semi（medium 6px）；表格随边框 token 自动变浅 */
-.el-card,
-.el-dialog,
-.el-message-box {
-  border-radius: var(--semi-border-radius-medium);
+/* ===== 深色模式 ===== */
+html.dark {
+  --ape-body-bg: #1b1f2e;
+  --ape-card-bg: #232838;
+  --ape-nav-bg: #1f2433;
+  --ape-border: #3a3f52;
+  --ape-border-light: #34394a;
+  --ape-text: #e6e8f0;
+  --ape-text-regular: #b8bdd0;
+  --ape-text-secondary: #8a90a8;
+  --ape-text-placeholder: #6b7089;
+  --ape-primary: #7f8af8;
+  --ape-primary-hover: #a5acfa;
+  --ape-primary-light: #3a4294;
+  --ape-primary-soft: rgba(127, 138, 248, 0.14);
+  --semi-color-fill-0: rgba(255, 255, 255, 0.06);
+  --semi-color-fill-1: rgba(255, 255, 255, 0.1);
+  --semi-grey-0: var(--ape-body-bg);
+  --semi-grey-1: var(--ape-border);
+
+  --el-color-primary: var(--ape-primary);
+  --el-color-primary-light-3: var(--ape-primary-hover);
+  --el-color-primary-light-5: #c9cdfc;
+  --el-color-primary-light-7: #dbdffd;
+  --el-color-primary-light-8: #4b55c9;
+  --el-color-primary-light-9: var(--ape-primary-light);
+  --el-color-primary-dark-2: #5a67f5;
+  --el-text-color-primary: var(--ape-text);
+  --el-text-color-regular: var(--ape-text-regular);
+  --el-text-color-secondary: var(--ape-text-secondary);
+  --el-text-color-placeholder: var(--ape-text-placeholder);
+  --el-border-color: var(--ape-border);
+  --el-border-color-light: var(--ape-border-light);
+  --el-border-color-lighter: #2e3344;
+  --el-fill-color: #2e3344;
+  --el-fill-color-light: #2e3344;
+  --el-fill-color-lighter: #333a4e;
+  --el-fill-color-blank: var(--ape-card-bg);
+  --el-bg-color: var(--ape-card-bg);
+  --el-bg-color-page: var(--ape-body-bg);
+  --el-bg-color-overlay: #262b3d;
 }
 
-/* 侧边栏菜单：Semi 浅色导航（白底 + 极浅描边 + 块状高亮选中） */
-.side-nav .el-menu {
-  background: var(--semi-color-nav-bg);
-  border-right: 1px solid var(--semi-color-border);
+/* 品牌渐变工具类 */
+.ape-gradient {
+  background: linear-gradient(135deg, var(--ape-grad-from) 0%, var(--ape-grad-to) 100%);
 }
-.side-nav .el-menu-item,
-.side-nav .el-sub-menu__title {
-  color: var(--semi-color-text-1);
-  border-radius: var(--semi-border-radius-small);
-}
-.side-nav .el-menu-item:hover,
-.side-nav .el-sub-menu__title:hover {
-  background: var(--semi-color-fill-0);
-  color: var(--semi-color-text-0);
-}
-.side-nav .el-menu-item.is-active {
-  background: var(--semi-color-primary-light);
-  color: var(--semi-color-primary);
-  font-weight: 600;
-}
-.side-nav .el-sub-menu .el-menu-item.is-active {
-  background: var(--semi-color-primary-light);
+.ape-gradient-text {
+  background: linear-gradient(135deg, var(--ape-grad-from) 0%, var(--ape-grad-to) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }

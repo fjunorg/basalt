@@ -6,8 +6,6 @@ package document
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +15,7 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/dataperm"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/audit"
@@ -130,11 +129,7 @@ func (s *MemStore) List(_ context.Context, creatorID string) ([]Doc, error) {
 	return out, nil
 }
 
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
-}
+func newID() string { return randutil.Hex16() }
 
 type Module struct {
 	store     Store

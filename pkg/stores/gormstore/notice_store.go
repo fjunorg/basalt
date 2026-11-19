@@ -15,12 +15,12 @@ type NoticeStore struct{ db *gorm.DB }
 // 编译期接口对齐检查。
 var _ notice.Store = (*NoticeStore)(nil)
 
-func (s *NoticeStore) Create(_ context.Context, n notice.Notice) error {
-	return s.db.Create(&n).Error
+func (s *NoticeStore) Create(ctx context.Context, n notice.Notice) error {
+	return s.db.WithContext(ctx).Create(&n).Error
 }
 
-func (s *NoticeStore) Update(_ context.Context, n notice.Notice) error {
-	res := s.db.Model(&notice.Notice{}).Where("id = ?", n.ID).
+func (s *NoticeStore) Update(ctx context.Context, n notice.Notice) error {
+	res := s.db.WithContext(ctx).Model(&notice.Notice{}).Where("id = ?", n.ID).
 		Select("Title", "Content", "Type", "Status", "CreatorID", "CreatedAt", "PublishedAt").
 		Updates(n)
 	if res.Error != nil {
@@ -32,8 +32,8 @@ func (s *NoticeStore) Update(_ context.Context, n notice.Notice) error {
 	return nil
 }
 
-func (s *NoticeStore) Delete(_ context.Context, id string) error {
-	res := s.db.Delete(&notice.Notice{}, "id = ?", id)
+func (s *NoticeStore) Delete(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Delete(&notice.Notice{}, "id = ?", id)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -43,9 +43,9 @@ func (s *NoticeStore) Delete(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *NoticeStore) Get(_ context.Context, id string) (notice.Notice, error) {
+func (s *NoticeStore) Get(ctx context.Context, id string) (notice.Notice, error) {
 	var n notice.Notice
-	err := s.db.First(&n, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&n, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return notice.Notice{}, notice.ErrNotFound
 	}
@@ -53,8 +53,8 @@ func (s *NoticeStore) Get(_ context.Context, id string) (notice.Notice, error) {
 }
 
 // List 按创建时间倒序；publishedOnly 时仅已发布（与 MemStore 语义一致）。
-func (s *NoticeStore) List(_ context.Context, publishedOnly bool) ([]notice.Notice, error) {
-	q := s.db.Order("created_at DESC")
+func (s *NoticeStore) List(ctx context.Context, publishedOnly bool) ([]notice.Notice, error) {
+	q := s.db.WithContext(ctx).Order("created_at DESC")
 	if publishedOnly {
 		q = q.Where("status = ?", notice.StatusPublished)
 	}

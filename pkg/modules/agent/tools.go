@@ -149,7 +149,7 @@ const maxToolResult = 4000
 func (t *RagSearchTool) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args ragSearchArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-		return "", fmt.Errorf("invalid arguments JSON: %v", err)
+		return "", fmt.Errorf("invalid arguments JSON: %w", err)
 	}
 	if args.KBID == "" || args.Query == "" {
 		return "", errors.New("kb_id and query are required")

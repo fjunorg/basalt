@@ -1,0 +1,311 @@
+/**
+ * ApeAdmin 风格组件观感层
+ *
+ * 依赖 semi-tokens.css 的 --ape-* token（先于本文件引入）。
+ * 只做视觉覆盖，不改任何组件行为；业务页可用 .ape-card / .ape-page-header
+ * / .stat-card 等公共类获得一致的版式。
+ */
+
+/* ===== 基础 ===== */
+html,
+body {
+  margin: 0;
+  color: var(--ape-text);
+  background: var(--ape-body-bg);
+  font-family: var(--ape-font);
+  font-size: 14px;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(140, 147, 163, 0.28);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 147, 163, 0.45);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===== 页面头部 ===== */
+.ape-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.ape-page-header h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--ape-text);
+}
+.ape-page-header .sub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ape-text-secondary);
+}
+
+/* ===== 卡片 ===== */
+.el-card,
+.ape-card {
+  background: var(--ape-card-bg);
+  border: none;
+  border-radius: var(--ape-radius-lg);
+  box-shadow: var(--ape-shadow-card);
+  transition: box-shadow 0.3s ease;
+  overflow: hidden;
+}
+.el-card:hover,
+.ape-card:hover {
+  box-shadow: var(--ape-shadow-card-hover);
+}
+.el-card__header {
+  padding: 22px 24px 0;
+  border-bottom: none;
+  background: transparent;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ape-text);
+}
+.el-card__body {
+  padding: 24px;
+}
+
+/* ===== 表格：无竖线、浅灰表头、行悬浮 ===== */
+.el-table {
+  --el-table-border-color: var(--ape-border-light);
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: var(--ape-primary-soft);
+  background: transparent;
+  color: var(--ape-text-regular);
+  font-size: 14px;
+}
+.el-table th.el-table__cell {
+  background: transparent;
+  color: var(--ape-text-secondary);
+  font-weight: 500;
+  border-bottom: 1px solid var(--ape-border);
+}
+.el-table td.el-table__cell {
+  border-bottom: 1px solid var(--ape-border-light);
+}
+.el-table__inner-wrapper::before {
+  display: none;
+}
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: rgba(90, 103, 245, 0.03);
+}
+
+/* 直接置于页面根节点下的表格：无需改页面结构即获得卡片化外观 */
+.page > .el-table {
+  background: var(--ape-card-bg);
+  border-radius: var(--ape-radius-lg);
+  box-shadow: var(--ape-shadow-card);
+  overflow: hidden;
+}
+.page > .el-pagination {
+  margin-top: 18px;
+  justify-content: flex-end;
+}
+
+/* ===== 标签：软底无描边 ===== */
+.el-tag {
+  border: none;
+  border-radius: 9px;
+  font-size: 12px;
+  padding: 0 10px;
+  height: 26px;
+  line-height: 26px;
+}
+
+/* ===== 按钮 ===== */
+.el-button {
+  border-radius: var(--ape-radius);
+  font-weight: 500;
+}
+.el-button--primary {
+  box-shadow: 0 4px 12px rgba(90, 103, 245, 0.24);
+}
+.el-button--primary:hover {
+  box-shadow: 0 6px 16px rgba(90, 103, 245, 0.3);
+}
+.el-button.is-text {
+  box-shadow: none;
+}
+
+/* ===== 输入 / 选择 ===== */
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper {
+  border-radius: var(--ape-radius);
+  box-shadow: 0 0 0 1px var(--ape-border) inset;
+  background: var(--ape-card-bg);
+}
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused {
+  box-shadow: 0 0 0 1px var(--ape-primary) inset;
+}
+
+/* ===== Tabs ===== */
+.el-tabs__item {
+  color: var(--ape-text-regular);
+  font-weight: 500;
+}
+.el-tabs__item.is-active {
+  color: var(--ape-primary);
+}
+.el-tabs__active-bar {
+  background-color: var(--ape-primary);
+  border-radius: 2px;
+}
+
+/* ===== Dialog / MessageBox ===== */
+.el-dialog,
+.el-message-box {
+  border-radius: var(--ape-radius-lg);
+}
+.el-dialog__title,
+.el-message-box__title {
+  font-weight: 600;
+  color: var(--ape-text);
+}
+
+/* ===== 弹层 / 下拉 ===== */
+.el-popper.is-light,
+.el-dropdown__popper,
+.el-select__popper {
+  border-radius: var(--ape-radius);
+  border-color: var(--ape-border);
+  box-shadow: var(--ape-shadow-pop);
+}
+.el-dropdown-menu__item {
+  border-radius: var(--ape-radius-sm);
+  margin: 2px 6px;
+}
+
+/* ===== 分页 ===== */
+.el-pagination.is-background .el-pager li,
+.el-pagination .btn-prev,
+.el-pagination .btn-next {
+  border-radius: var(--ape-radius-sm);
+  background: transparent;
+}
+.el-pagination .el-pager li.is-active {
+  background: var(--ape-primary);
+  color: #fff;
+}
+
+/* ===== 统计卡 ===== */
+.stat-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 22px 24px;
+  background: var(--ape-card-bg);
+  border-radius: var(--ape-radius-lg);
+  box-shadow: var(--ape-shadow-card);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ape-shadow-card-hover);
+}
+.stat-card .stat-icon {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  font-size: 24px;
+  color: var(--ape-primary);
+  background: var(--ape-primary-soft);
+}
+.stat-card .stat-label {
+  font-size: 13px;
+  color: var(--ape-text-secondary);
+  margin-bottom: 6px;
+}
+.stat-card .stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--ape-text);
+}
+.stat-card .stat-trend {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ape-text-secondary);
+}
+
+/* ===== 深色模式组件适配 ===== */
+html.dark body {
+  background: var(--ape-body-bg);
+  color: var(--ape-text);
+}
+html.dark .el-card,
+html.dark .ape-card,
+html.dark .stat-card {
+  background: var(--ape-card-bg);
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.25);
+}
+html.dark .el-table,
+html.dark .el-table tr,
+html.dark .el-table th.el-table__cell,
+html.dark .el-table td.el-table__cell {
+  background: transparent;
+  color: var(--ape-text);
+}
+html.dark .el-table th.el-table__cell {
+  border-bottom-color: rgba(127, 138, 248, 0.2);
+}
+html.dark .el-table td.el-table__cell {
+  border-bottom-color: rgba(127, 138, 248, 0.1);
+}
+html.dark .el-table__body tr:hover > td.el-table__cell {
+  background: #2e3344 !important;
+}
+html.dark .el-dialog,
+html.dark .el-message-box,
+html.dark .el-popper,
+html.dark .el-dropdown__popper,
+html.dark .el-select__popper {
+  background: #262b3d;
+  border-color: #36394a;
+}
+html.dark .el-input__wrapper,
+html.dark .el-textarea__inner,
+html.dark .el-select__wrapper {
+  background: #2e3344;
+  box-shadow: 0 0 0 1px #3a3f55 inset;
+}
+html.dark .el-input__inner {
+  color: var(--ape-text);
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 1200px) {
+  .stat-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .stat-card-grid {
+    grid-template-columns: 1fr;
+  }
+}

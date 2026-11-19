@@ -16,16 +16,16 @@ type DictStore struct{ db *gorm.DB }
 // 编译期接口对齐检查。
 var _ dict.Store = (*DictStore)(nil)
 
-func (s *DictStore) CreateType(_ context.Context, t dict.Type) error { return dictCreateType(s.db, t) }
-func (s *DictStore) UpdateType(_ context.Context, t dict.Type) error { return dictUpdateType(s.db, t) }
-func (s *DictStore) DeleteType(_ context.Context, id string) error   { return dictDeleteType(s.db, id) }
-func (s *DictStore) ListTypes(_ context.Context) ([]dict.Type, error) {
+func (s *DictStore) CreateType(ctx context.Context, t dict.Type) error { return dictCreateType(s.db, t) }
+func (s *DictStore) UpdateType(ctx context.Context, t dict.Type) error { return dictUpdateType(s.db, t) }
+func (s *DictStore) DeleteType(ctx context.Context, id string) error   { return dictDeleteType(s.db, id) }
+func (s *DictStore) ListTypes(ctx context.Context) ([]dict.Type, error) {
 	return dictListTypes(s.db)
 }
-func (s *DictStore) CreateData(_ context.Context, d dict.Data) error { return dictCreateData(s.db, d) }
-func (s *DictStore) UpdateData(_ context.Context, d dict.Data) error { return dictUpdateData(s.db, d) }
-func (s *DictStore) DeleteData(_ context.Context, id string) error   { return dictDeleteData(s.db, id) }
-func (s *DictStore) ListDataByType(_ context.Context, typeCode string) ([]dict.Data, error) {
+func (s *DictStore) CreateData(ctx context.Context, d dict.Data) error { return dictCreateData(s.db, d) }
+func (s *DictStore) UpdateData(ctx context.Context, d dict.Data) error { return dictUpdateData(s.db, d) }
+func (s *DictStore) DeleteData(ctx context.Context, id string) error   { return dictDeleteData(s.db, id) }
+func (s *DictStore) ListDataByType(ctx context.Context, typeCode string) ([]dict.Data, error) {
 	return dictListDataByType(s.db, typeCode)
 }
 

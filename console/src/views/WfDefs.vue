@@ -2,6 +2,7 @@
   <div class="page">
     <div class="toolbar">
       <el-button v-if="can('workflow:def:manage')" type="primary" @click="openCreate">新建流程定义</el-button>
+      <el-button v-if="can('workflow:def:manage')" @click="$router.push('/wf-designer')">可视化设计器</el-button>
       <el-button @click="load">刷新</el-button>
     </div>
     <el-table :data="rows" border stripe v-loading="loading" size="small">
@@ -11,8 +12,8 @@
       <el-table-column label="步骤" min-width="260">
         <template #default="{ row }">
           <el-tag v-for="(st, i) in row.steps" :key="i" size="small" style="margin: 2px"
-            :type="st.mode === 'or-sign' ? 'warning' : 'primary'">
-            {{ i + 1 }}. {{ st.name }}（{{ modeLabel(st.mode) }}·{{ st.approvers.length }}人）
+            :type="stepTagType(st)">
+            {{ i + 1 }}. {{ st.name }}（{{ stepSummary(st) }}）
           </el-tag>
         </template>
       </el-table-column>
@@ -24,6 +25,7 @@
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
           <el-button v-if="can('workflow:def:manage')" size="small" @click="openEdit(row)">编辑</el-button>
+          <el-button v-if="can('workflow:def:manage')" size="small" @click="$router.push(`/wf-designer/${row.id}`)">设计</el-button>
           <el-button v-if="can('workflow:def:manage')" size="small" :type="row.status === 'active' ? 'warning' : 'success'"
             @click="toggle(row)">{{ row.status === 'active' ? '停用' : '启用' }}</el-button>
         </template>
@@ -39,14 +41,19 @@
       <el-divider content-position="left">审批步骤（串行执行）</el-divider>
       <div v-for="(st, i) in form.steps" :key="i" style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center">
         <el-input v-model="st.name" placeholder="步骤名" style="width: 140" />
-        <el-select v-model="st.approvers" multiple filterable placeholder="审批人" style="flex: 1">
-          <el-option v-for="u in users" :key="u.id" :value="u.id" :label="u.username" />
-        </el-select>
-        <el-select v-model="st.mode" style="width: 100">
-          <el-option label="会签" value="countersign" />
-          <el-option label="或签" value="or-sign" />
-          <el-option label="依次" value="sequential" />
-        </el-select>
+        <template v-if="!st.type || st.type === 'approval'">
+          <el-select v-model="st.approvers" multiple filterable placeholder="审批人" style="flex: 1">
+            <el-option v-for="u in users" :key="u.id" :value="u.id" :label="u.username" />
+          </el-select>
+          <el-select v-model="st.mode" style="width: 100">
+            <el-option label="会签" value="countersign" />
+            <el-option label="或签" value="or-sign" />
+            <el-option label="依次" value="sequential" />
+          </el-select>
+        </template>
+        <el-tag v-else type="warning" style="flex: 1">
+          {{ st.type === 'condition' ? '条件分支' : '并行网关' }} · 请在设计器中配置
+        </el-tag>
         <el-button text type="danger" @click="form.steps.splice(i, 1)">删</el-button>
       </div>
       <el-button size="small" @click="form.steps.push({ name: '', approvers: [], mode: 'countersign' })">+ 添加步骤</el-button>
@@ -63,9 +70,28 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from '../element'
 import { api, perms, hasPerm, errMsg } from '../api'
 
-interface WfStep { name: string; approvers: string[]; mode: 'countersign' | 'or-sign' | 'sequential' }
+interface WfCond { field: string; op: string; value: string }
+interface WfRule { to: number; cond?: WfCond[] }
+interface WfStep {
+  name: string
+  approvers: string[]
+  mode: 'countersign' | 'or-sign' | 'sequential'
+  type?: 'approval' | 'condition' | 'parallel'
+  rules?: WfRule[]
+  branches?: WfStep[][]
+}
 // 契约 workflow-api-contract.md §7：mode 枚举含 sequential（按序逐人）
 const modeLabel = (m: string) => ({ countersign: '会签', 'or-sign': '或签', sequential: '依次' }[m] || m)
+const stepTagType = (st: WfStep): 'success' | 'warning' | 'primary' | 'info' => {
+  if (st.type === 'condition') return 'warning'
+  if (st.type === 'parallel') return 'success'
+  return st.mode === 'or-sign' ? 'warning' : 'primary'
+}
+const stepSummary = (st: WfStep): string => {
+  if (st.type === 'condition') return `条件·${st.rules?.length || 0} 规则`
+  if (st.type === 'parallel') return `并行·${st.branches?.length || 0} 分支`
+  return `${modeLabel(st.mode)}·${st.approvers.length}人`
+}
 interface WfDefRow { id: string; key: string; name: string; category: string; steps: WfStep[]; status: string }
 interface UserRow { id: string; username: string }
 
@@ -112,6 +138,7 @@ async function save() {
     return
   }
   for (const st of form.steps) {
+    if (st.type === 'condition' || st.type === 'parallel') continue
     if (!st.approvers.length) {
       ElMessage.warning(`步骤「${st.name || '?'}」需选择审批人`)
       return

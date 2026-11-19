@@ -80,7 +80,7 @@ type ChatResult struct {
 // 错误语义：ErrSafetyRejected（策略拒绝）/ ErrNoProvider /
 // ErrBadUpstream（上游错误，调用方可重试或落 failed）。
 func (m *Module) ChatComplete(ctx context.Context, subject, actor, model string, msgs []ChatMessage, opts ChatOptions) (ChatResult, error) {
-	if !m.quota.Allow(subject, 1) {
+	if !m.quota.Allow(ctx, subject, 1) {
 		m.record(ctx, subject, actor, model, 0, "quota.denied")
 		return ChatResult{}, ErrQuotaExceeded
 	}
@@ -138,7 +138,7 @@ func (m *Module) ChatComplete(ctx context.Context, subject, actor, model string,
 		resp.Content = filtered
 	}
 
-	m.quota.Consume(subject, resp.Usage.TotalTokens)
+	m.quota.Consume(ctx, subject, resp.Usage.TotalTokens)
 	m.record(ctx, subject, actor, model, resp.Usage.TotalTokens, "chat.ok")
 	return resp, nil
 }

@@ -13,6 +13,17 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
 <style>
 html, body, #app { height: 0; margin: 0; }
 #app { min-height: 100vh; }
-.page { padding: 16px; }
-.toolbar { margin-bottom: 12px; display: flex; gap: 8px; }
+/* 页面容器：间距由 Layout 内容区统一提供 */
+.page { padding: 0; }
+.toolbar {
+  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+/* 栅格内卡片在窄屏堆叠时保留间距 */
+@media (max-width: 992px) {
+  .el-col > .el-card { margin-bottom: 16px; }
+}
 </style>

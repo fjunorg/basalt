@@ -43,7 +43,7 @@ func (*Module) Describe() app.ModuleInfo {
 		Permissions: []string{PermList, PermManage}}
 }
 
-func (m *Module) Init(_ context.Context, a *app.App) error {
+func (m *Module) Init(ctx context.Context, a *app.App) error {
 	idm, ok := a.Registry().MustGet("identity").(*identity.Module)
 	if !ok {
 		return errors.New("ai-safety: identity module not available")
@@ -56,7 +56,7 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 	m.recorder = adm.Recorder()
 
 	// 启动即装载词库/策略快照（服务热路径零 DB 查询）
-	if err := m.engine.Reload(context.Background(), m.store); err != nil {
+	if err := m.engine.Reload(ctx, m.store); err != nil {
 		return err
 	}
 
@@ -94,9 +94,9 @@ func (m *Module) Start(ctx context.Context) error {
 
 func (*Module) Stop(context.Context) error { return nil }
 
-// reload 变更后刷新引擎快照。
-func (m *Module) reload() {
-	_ = m.engine.Reload(context.Background(), m.store)
+// reload 变更后刷新引擎快照（沿用现有请求 ctx）。
+func (m *Module) reload(ctx context.Context) {
+	_ = m.engine.Reload(ctx, m.store)
 }
 
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
@@ -140,7 +140,7 @@ func (m *Module) createTerm(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	m.reload()
+	m.reload(r.Context())
 	web.Created(w, t)
 }
 
@@ -190,7 +190,7 @@ func (m *Module) updateTerm(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	m.reload()
+	m.reload(r.Context())
 	web.OK(w, cur)
 }
 
@@ -203,7 +203,7 @@ func (m *Module) deleteTerm(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	m.reload()
+	m.reload(r.Context())
 	web.OK(w, nil)
 }
 
@@ -259,7 +259,7 @@ func (m *Module) importTerms(w http.ResponseWriter, r *http.Request) {
 		}
 		imported++
 	}
-	m.reload()
+	m.reload(r.Context())
 	m.audit(r, "terms.imported", "", "imported", imported, "skipped", skipped)
 	web.OK(w, map[string]int{"imported": imported, "skipped": skipped})
 }
@@ -312,7 +312,7 @@ func (m *Module) setPolicy(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	m.reload()
+	m.reload(r.Context())
 	m.audit(r, "policy.updated", tenant, "action", req.Action)
 	web.OK(w, p)
 }
@@ -338,7 +338,7 @@ func (m *Module) putSettings(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	m.reload()
+	m.reload(r.Context())
 	m.audit(r, "settings.updated", "", "enabled", req.Enabled)
 	web.OK(w, st)
 }

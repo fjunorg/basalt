@@ -17,19 +17,19 @@ type NotifyStore struct{ db *gorm.DB }
 // 编译期接口对齐检查。
 var _ notify.Store = (*NotifyStore)(nil)
 
-func (s *NotifyStore) CreateTemplate(_ context.Context, t notify.Template) error {
+func (s *NotifyStore) CreateTemplate(ctx context.Context, t notify.Template) error {
 	var cnt int64
-	if err := s.db.Model(&notify.Template{}).Where("code = ?", t.Code).Count(&cnt).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&notify.Template{}).Where("code = ?", t.Code).Count(&cnt).Error; err != nil {
 		return err
 	}
 	if cnt > 0 {
 		return notify.ErrDupCode
 	}
-	return s.db.Create(&t).Error
+	return s.db.WithContext(ctx).Create(&t).Error
 }
 
-func (s *NotifyStore) UpdateTemplate(_ context.Context, t notify.Template) error {
-	res := s.db.Model(&notify.Template{}).Where("id = ?", t.ID).
+func (s *NotifyStore) UpdateTemplate(ctx context.Context, t notify.Template) error {
+	res := s.db.WithContext(ctx).Model(&notify.Template{}).Where("id = ?", t.ID).
 		Select("Code", "Channel", "Name", "Subject", "Content", "Status").
 		Updates(t)
 	if res.Error != nil {
@@ -41,8 +41,8 @@ func (s *NotifyStore) UpdateTemplate(_ context.Context, t notify.Template) error
 	return nil
 }
 
-func (s *NotifyStore) DeleteTemplate(_ context.Context, id string) error {
-	res := s.db.Delete(&notify.Template{}, "id = ?", id)
+func (s *NotifyStore) DeleteTemplate(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Delete(&notify.Template{}, "id = ?", id)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -52,34 +52,34 @@ func (s *NotifyStore) DeleteTemplate(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *NotifyStore) GetTemplateByCode(_ context.Context, code string) (notify.Template, error) {
+func (s *NotifyStore) GetTemplateByCode(ctx context.Context, code string) (notify.Template, error) {
 	var t notify.Template
-	err := s.db.First(&t, "code = ?", code).Error
+	err := s.db.WithContext(ctx).First(&t, "code = ?", code).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return notify.Template{}, notify.ErrNotFound
 	}
 	return t, err
 }
 
-func (s *NotifyStore) ListTemplates(_ context.Context) ([]notify.Template, error) {
+func (s *NotifyStore) ListTemplates(ctx context.Context) ([]notify.Template, error) {
 	var out []notify.Template
-	err := s.db.Order("code").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("code").Find(&out).Error
 	return list(out), err
 }
 
-func (s *NotifyStore) CreateSMTP(_ context.Context, c notify.SMTPConfig) error {
+func (s *NotifyStore) CreateSMTP(ctx context.Context, c notify.SMTPConfig) error {
 	var cnt int64
-	if err := s.db.Model(&notify.SMTPConfig{}).Where("name = ?", c.Name).Count(&cnt).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&notify.SMTPConfig{}).Where("name = ?", c.Name).Count(&cnt).Error; err != nil {
 		return err
 	}
 	if cnt > 0 {
 		return notify.ErrDupCode
 	}
-	return s.db.Create(&c).Error
+	return s.db.WithContext(ctx).Create(&c).Error
 }
 
-func (s *NotifyStore) DeleteSMTP(_ context.Context, id string) error {
-	res := s.db.Delete(&notify.SMTPConfig{}, "id = ?", id)
+func (s *NotifyStore) DeleteSMTP(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Delete(&notify.SMTPConfig{}, "id = ?", id)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -89,25 +89,25 @@ func (s *NotifyStore) DeleteSMTP(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *NotifyStore) ListSMTPs(_ context.Context) ([]notify.SMTPConfig, error) {
+func (s *NotifyStore) ListSMTPs(ctx context.Context) ([]notify.SMTPConfig, error) {
 	var out []notify.SMTPConfig
-	err := s.db.Order("name").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("name").Find(&out).Error
 	return list(out), err
 }
 
-func (s *NotifyStore) CreateSMSChannel(_ context.Context, c notify.SMSChannel) error {
+func (s *NotifyStore) CreateSMSChannel(ctx context.Context, c notify.SMSChannel) error {
 	var cnt int64
-	if err := s.db.Model(&notify.SMSChannel{}).Where("name = ?", c.Name).Count(&cnt).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&notify.SMSChannel{}).Where("name = ?", c.Name).Count(&cnt).Error; err != nil {
 		return err
 	}
 	if cnt > 0 {
 		return notify.ErrDupCode
 	}
-	return s.db.Create(&c).Error
+	return s.db.WithContext(ctx).Create(&c).Error
 }
 
-func (s *NotifyStore) DeleteSMSChannel(_ context.Context, id string) error {
-	res := s.db.Delete(&notify.SMSChannel{}, "id = ?", id)
+func (s *NotifyStore) DeleteSMSChannel(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Delete(&notify.SMSChannel{}, "id = ?", id)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -117,18 +117,18 @@ func (s *NotifyStore) DeleteSMSChannel(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *NotifyStore) ListSMSChannels(_ context.Context) ([]notify.SMSChannel, error) {
+func (s *NotifyStore) ListSMSChannels(ctx context.Context) ([]notify.SMSChannel, error) {
 	var out []notify.SMSChannel
-	err := s.db.Order("name").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("name").Find(&out).Error
 	return list(out), err
 }
 
-func (s *NotifyStore) AppendLog(_ context.Context, l notify.SendLog) error {
-	return s.db.Create(&l).Error
+func (s *NotifyStore) AppendLog(ctx context.Context, l notify.SendLog) error {
+	return s.db.WithContext(ctx).Create(&l).Error
 }
 
-func (s *NotifyStore) ListLogs(_ context.Context, channel string, offset, limit int) ([]notify.SendLog, int64, error) {
-	q := s.db.Model(&notify.SendLog{})
+func (s *NotifyStore) ListLogs(ctx context.Context, channel string, offset, limit int) ([]notify.SendLog, int64, error) {
+	q := s.db.WithContext(ctx).Model(&notify.SendLog{})
 	if channel != "" {
 		q = q.Where("channel = ?", channel)
 	}
@@ -144,21 +144,21 @@ func (s *NotifyStore) ListLogs(_ context.Context, channel string, offset, limit 
 	return out, total, err
 }
 
-func (s *NotifyStore) GetLog(_ context.Context, id string) (notify.SendLog, error) {
+func (s *NotifyStore) GetLog(ctx context.Context, id string) (notify.SendLog, error) {
 	var l notify.SendLog
-	err := s.db.First(&l, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&l, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return notify.SendLog{}, notify.ErrNotFound
 	}
 	return l, err
 }
 
-func (s *NotifyStore) CreateInbox(_ context.Context, m notify.InboxMsg) error {
-	return s.db.Create(&m).Error
+func (s *NotifyStore) CreateInbox(ctx context.Context, m notify.InboxMsg) error {
+	return s.db.WithContext(ctx).Create(&m).Error
 }
 
-func (s *NotifyStore) ListInbox(_ context.Context, userID string, unreadOnly bool, offset, limit int) ([]notify.InboxMsg, int64, error) {
-	q := s.db.Model(&notify.InboxMsg{}).Where("user_id = ?", userID)
+func (s *NotifyStore) ListInbox(ctx context.Context, userID string, unreadOnly bool, offset, limit int) ([]notify.InboxMsg, int64, error) {
+	q := s.db.WithContext(ctx).Model(&notify.InboxMsg{}).Where("user_id = ?", userID)
 	if unreadOnly {
 		q = q.Where("read = ?", false)
 	}
@@ -174,9 +174,9 @@ func (s *NotifyStore) ListInbox(_ context.Context, userID string, unreadOnly boo
 	return out, total, err
 }
 
-func (s *NotifyStore) MarkRead(_ context.Context, id, userID string) error {
+func (s *NotifyStore) MarkRead(ctx context.Context, id, userID string) error {
 	now := time.Now().UTC()
-	res := s.db.Model(&notify.InboxMsg{}).
+	res := s.db.WithContext(ctx).Model(&notify.InboxMsg{}).
 		Where("id = ? AND user_id = ? AND read = ?", id, userID, false).
 		Updates(map[string]any{"read": true, "read_at": now})
 	if res.Error != nil {
@@ -185,7 +185,7 @@ func (s *NotifyStore) MarkRead(_ context.Context, id, userID string) error {
 	if res.RowsAffected == 0 {
 		// 幂等：已读重复标记视为成功，不存在才报错
 		var cnt int64
-		if err := s.db.Model(&notify.InboxMsg{}).Where("id = ? AND user_id = ?", id, userID).Count(&cnt).Error; err == nil && cnt > 0 {
+		if err := s.db.WithContext(ctx).Model(&notify.InboxMsg{}).Where("id = ? AND user_id = ?", id, userID).Count(&cnt).Error; err == nil && cnt > 0 {
 			return nil
 		}
 		return notify.ErrNotFound
@@ -193,9 +193,9 @@ func (s *NotifyStore) MarkRead(_ context.Context, id, userID string) error {
 	return nil
 }
 
-func (s *NotifyStore) UnreadCount(_ context.Context, userID string) (int64, error) {
+func (s *NotifyStore) UnreadCount(ctx context.Context, userID string) (int64, error) {
 	var n int64
-	err := s.db.Model(&notify.InboxMsg{}).
+	err := s.db.WithContext(ctx).Model(&notify.InboxMsg{}).
 		Where("user_id = ? AND read = ?", userID, false).Count(&n).Error
 	return n, err
 }

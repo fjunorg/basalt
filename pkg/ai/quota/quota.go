@@ -41,37 +41,37 @@ func (m *Manager) CurrentPeriod() string { return m.now().UTC().Format("2006-01"
 func (m *Manager) SetClock(now func() time.Time) { m.now = now }
 
 // SetLimit 设置租户限额（跨账期延续）。limit < 0 = 不限量。
-func (m *Manager) SetLimit(tenantID string, limit int64) {
-	_ = m.store.SetLimit(context.Background(), tenantID, limit)
+func (m *Manager) SetLimit(ctx context.Context, tenantID string, limit int64) {
+	_ = m.store.SetLimit(ctx, tenantID, limit)
 }
 
 // Limit 返回租户当前生效限额。
-func (m *Manager) Limit(tenantID string) int64 {
-	if l, ok := m.store.GetLimit(context.Background(), tenantID); ok {
+func (m *Manager) Limit(ctx context.Context, tenantID string) int64 {
+	if l, ok := m.store.GetLimit(ctx, tenantID); ok {
 		return l
 	}
 	return m.deflt
 }
 
 // Allow 预检：当前账期累计用量是否已到顶。n 为本次预估消耗。
-func (m *Manager) Allow(tenantID string, n int64) bool {
-	limit := m.Limit(tenantID)
+func (m *Manager) Allow(ctx context.Context, tenantID string, n int64) bool {
+	limit := m.Limit(ctx, tenantID)
 	if limit < 0 {
 		return true
 	}
-	used, _ := m.store.GetUsage(context.Background(), tenantID, m.CurrentPeriod())
+	used, _ := m.store.GetUsage(ctx, tenantID, m.CurrentPeriod())
 	return used+n <= limit
 }
 
 // Consume 当前账期记账（以模型返回的真实 total_tokens 为准）。
-func (m *Manager) Consume(tenantID string, tokens int64) {
-	_ = m.store.AddUsage(context.Background(), tenantID, m.CurrentPeriod(), tokens)
+func (m *Manager) Consume(ctx context.Context, tenantID string, tokens int64) {
+	_ = m.store.AddUsage(ctx, tenantID, m.CurrentPeriod(), tokens)
 }
 
 // Usage 返回租户当前账期用量与限额。
-func (m *Manager) Usage(tenantID string) (used, limit int64) {
-	used, _ = m.store.GetUsage(context.Background(), tenantID, m.CurrentPeriod())
-	return used, m.Limit(tenantID)
+func (m *Manager) Usage(ctx context.Context, tenantID string) (used, limit int64) {
+	used, _ = m.store.GetUsage(ctx, tenantID, m.CurrentPeriod())
+	return used, m.Limit(ctx, tenantID)
 }
 
 // ---------- 内存实现 ----------

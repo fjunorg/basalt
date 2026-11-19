@@ -8,8 +8,6 @@ package errcode
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -18,6 +16,7 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 )
@@ -326,10 +325,4 @@ var Seeds = []Entry{
 	{Module: "identity", Code: "SSO_INVALID_SCOPE", Message: "请求 scope 超出注册范围", HTTPStatus: 400},
 }
 
-func newID() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		panic("errcode: crypto/rand unavailable: " + err.Error())
-	}
-	return hex.EncodeToString(b)
-}
+func newID() string { return randutil.Hex16() }

@@ -120,12 +120,13 @@ type Store interface {
 }
 
 type Manager struct {
-	mu      sync.Mutex
-	jobs    map[string]*Job
-	runners map[string]Runner
-	runs    map[string][]RunRecord // jobID -> 倒序记录
-	logger  *slog.Logger
-	store   Store // 可选持久化；nil 为纯内存
+	mu       sync.Mutex
+	jobs     map[string]*Job
+	runners  map[string]Runner
+	runs     map[string][]RunRecord // jobID -> 倒序记录
+	logger   *slog.Logger
+	store    Store // 可选持久化；nil 为纯内存
+	lastTick time.Time
 }
 
 func NewManager(logger *slog.Logger) *Manager {
@@ -375,7 +376,7 @@ func (m *Manager) exec(ctx context.Context, j *Job, run Runner) {
 		rec.Result = result
 	}
 	if m.store != nil {
-		if saved, serr := m.store.SaveRun(context.Background(), rec); serr == nil {
+		if saved, serr := m.store.SaveRun(ctx, rec); serr == nil {
 			rec.Seq = saved.Seq
 		} else {
 			m.logWarn("run persist failed", j.ID, serr)
@@ -390,7 +391,7 @@ func (m *Manager) exec(ctx context.Context, j *Job, run Runner) {
 		m.runs[j.ID] = m.runs[j.ID][:keepRuns]
 	}
 	if m.store != nil {
-		if perr := m.store.SaveJob(context.Background(), *j); perr != nil {
+		if perr := m.store.SaveJob(ctx, *j); perr != nil {
 			m.logWarn("job persist failed", j.ID, perr)
 		}
 	}
@@ -410,6 +411,10 @@ func firstNonEmpty(a, b string) string {
 // tick 由模块 Start 的循环调用：执行全部到期任务。
 func (m *Manager) tick(ctx context.Context) {
 	now := time.Now().UTC()
+	m.mu.Lock()
+	m.lastTick = now
+	m.mu.Unlock()
+
 	type pair struct {
 		j   *Job
 		run Runner
@@ -425,6 +430,21 @@ func (m *Manager) tick(ctx context.Context) {
 	for _, p := range due {
 		m.exec(ctx, p.j, p.run)
 	}
+}
+
+// SchedulerPing 供 readyz 使用：检查调度循环是否存活。
+// 返回 error 表示调度器卡死（自 Start 起从未 tick 或最近 tick 超过 30s）。
+func (m *Manager) SchedulerPing() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.lastTick.IsZero() {
+		// 还没 tick 过：给 5s 启动宽限
+		return nil
+	}
+	if time.Since(m.lastTick) > 30*time.Second {
+		return fmt.Errorf("scheduler tick stall: last tick at %s (over 30s ago)", m.lastTick)
+	}
+	return nil
 }
 
 // List 返回任务定义快照。

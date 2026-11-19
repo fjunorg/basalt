@@ -9,6 +9,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 )
 
 // OAuth2 2.1 / SSO 子域（竞品 Gap P0#3）：应用管理、授权码（含 PKCE）
@@ -138,13 +140,7 @@ type SSOStore interface {
 
 // ---------- 随机值与哈希 ----------
 
-func randHex(n int) string {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		panic("identity: crypto/rand unavailable: " + err.Error())
-	}
-	return hex.EncodeToString(b)
-}
+func randHex(n int) string { return randutil.Hex(n) }
 
 // NewSSOClientID 生成公开 client_id（32 hex 字符）。
 func NewSSOClientID() string { return randHex(16) }

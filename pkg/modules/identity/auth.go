@@ -2,14 +2,13 @@ package identity
 
 import (
 	"context"
-	cryptorand "crypto/rand"
-	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 )
 
@@ -64,13 +63,7 @@ func (t *TokenIssuer) IssueOAuth2(u User, clientID string, scopes []string, now 
 }
 
 // randTokenID 生成令牌唯一标识（128 位熵 hex）。
-func randTokenID() string {
-	b := make([]byte, 16)
-	if _, err := cryptorand.Read(b); err != nil {
-		panic("identity: crypto/rand unavailable: " + err.Error())
-	}
-	return hex.EncodeToString(b)
-}
+func randTokenID() string { return randutil.Hex16() }
 
 type ctxKey int
 

@@ -128,7 +128,7 @@ func (m *Module) chat(w http.ResponseWriter, r *http.Request) {
 
 	// 预检：累计用量已到顶即拒绝。请求前无法得知真实消耗，
 	// 请求完成后按模型返回的 total_tokens 记账，超额在下次调用拒绝。
-	if !m.quota.Allow(subject, 1) {
+	if !m.quota.Allow(r.Context(), subject, 1) {
 		m.record(r.Context(), subject, u.ID, req.Model, 0, "quota.denied")
 		web.WriteJSON(w, http.StatusTooManyRequests, http.StatusTooManyRequests,
 			"token quota exceeded for tenant", nil)
@@ -181,7 +181,7 @@ func (m *Module) chat(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	m.quota.Consume(subject, resp.Usage.TotalTokens)
+	m.quota.Consume(r.Context(), subject, resp.Usage.TotalTokens)
 	m.record(r.Context(), subject, u.ID, req.Model, resp.Usage.TotalTokens, "chat.ok")
 
 	// 保留 OpenAI 兼容响应结构，附加租户用量视图。
@@ -255,7 +255,7 @@ func (m *Module) chatStream(w http.ResponseWriter, r *http.Request, c *client, m
 			}
 		}
 	}
-	m.quota.Consume(subject, total)
+	m.quota.Consume(r.Context(), subject, total)
 	m.record(r.Context(), subject, actor, req.Model, total, "chat.stream.ok")
 }
 
@@ -383,14 +383,14 @@ func (m *Module) setQuota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tenant := r.PathValue("tenant")
-	m.quota.SetLimit(tenant, req.Limit)
+	m.quota.SetLimit(r.Context(), tenant, req.Limit)
 	m.record(r.Context(), tenant, "", "", 0, "quota.updated")
 	web.OK(w, map[string]any{"tenant": tenant, "limit": req.Limit})
 }
 
 func (m *Module) getQuota(w http.ResponseWriter, r *http.Request) {
 	tenant := r.PathValue("tenant")
-	used, limit := m.quota.Usage(tenant)
+	used, limit := m.quota.Usage(r.Context(), tenant)
 	web.OK(w, map[string]any{
 		"tenant": tenant, "used": used, "limit": limit,
 		"remaining": remaining(used, limit),

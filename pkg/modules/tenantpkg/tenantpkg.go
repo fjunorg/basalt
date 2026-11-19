@@ -15,14 +15,13 @@ package tenantpkg
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/audit"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
@@ -505,10 +504,4 @@ func (m *Module) getBinding(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func newID() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		panic("tenantpkg: crypto/rand unavailable: " + err.Error())
-	}
-	return hex.EncodeToString(b)
-}
+func newID() string { return randutil.Hex16() }

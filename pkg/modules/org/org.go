@@ -7,8 +7,6 @@ package org
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +16,7 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/dataperm"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
@@ -40,10 +39,12 @@ var (
 )
 
 // Dept 是部门（树形，ParentID 为空表示根）。
+// LeaderID 是部门负责人用户 ID（workflow 审批人表达式 dept-head 的解析目标）。
 type Dept struct {
 	ID        string    `json:"id" gorm:"primaryKey;size:40"`
 	ParentID  string    `json:"parent_id" gorm:"size:40;index"`
 	Name      string    `json:"name" gorm:"size:128"`
+	LeaderID  string    `json:"leader_id,omitempty" gorm:"size:40"`
 	Sort      int       `json:"sort"`
 	Status    string    `json:"status" gorm:"size:16"`
 	CreatedAt time.Time `json:"created_at"`
@@ -196,11 +197,7 @@ func BuildTree(depts []Dept) []*DeptNode {
 	return roots
 }
 
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
-}
+func newID() string { return randutil.Hex16() }
 
 type Module struct {
 	store  Store
@@ -303,6 +300,7 @@ func (m *Module) createDept(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ParentID string `json:"parent_id"`
 		Name     string `json:"name"`
+		LeaderID string `json:"leader_id"`
 		Sort     int    `json:"sort"`
 	}
 	if !decode(w, r, &req) || req.Name == "" {
@@ -315,7 +313,7 @@ func (m *Module) createDept(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	d := Dept{ID: newID(), ParentID: req.ParentID, Name: req.Name,
+	d := Dept{ID: newID(), ParentID: req.ParentID, Name: req.Name, LeaderID: req.LeaderID,
 		Sort: req.Sort, Status: "active", CreatedAt: time.Now().UTC()}
 	if err := m.store.CreateDept(r.Context(), d); err != nil {
 		web.Err(w, http.StatusInternalServerError, "internal error")
@@ -326,9 +324,10 @@ func (m *Module) createDept(w http.ResponseWriter, r *http.Request) {
 
 func (m *Module) updateDept(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name   string `json:"name"`
-		Sort   int    `json:"sort"`
-		Status string `json:"status"`
+		Name     string  `json:"name"`
+		LeaderID *string `json:"leader_id"`
+		Sort     int     `json:"sort"`
+		Status   string  `json:"status"`
 	}
 	if !decode(w, r, &req) {
 		return
@@ -338,6 +337,9 @@ func (m *Module) updateDept(w http.ResponseWriter, r *http.Request) {
 		if d.ID == r.PathValue("id") {
 			if req.Name != "" {
 				d.Name = req.Name
+			}
+			if req.LeaderID != nil {
+				d.LeaderID = *req.LeaderID
 			}
 			d.Sort = req.Sort
 			if req.Status != "" {

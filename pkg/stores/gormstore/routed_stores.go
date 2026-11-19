@@ -486,6 +486,13 @@ func (s *RoutedWorkflowStore) Act(ctx context.Context, instanceID, actorID, act,
 	}
 	return (&WorkflowStore{db: db}).Act(ctx, instanceID, actorID, act, comment)
 }
+func (s *RoutedWorkflowStore) ActBranch(ctx context.Context, instanceID, actorID, act, comment string, branch int) (workflow.Instance, error) {
+	db, err := s.dbFor(ctx)
+	if err != nil {
+		return workflow.Instance{}, err
+	}
+	return (&WorkflowStore{db: db}).ActBranch(ctx, instanceID, actorID, act, comment, branch)
+}
 func (s *RoutedWorkflowStore) Delegate(ctx context.Context, instanceID, fromUserID, toUserID string) (workflow.Instance, error) {
 	db, err := s.dbFor(ctx)
 	if err != nil {

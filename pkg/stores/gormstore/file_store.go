@@ -19,12 +19,12 @@ type FileStore struct{ db *gorm.DB }
 // 编译期接口对齐检查。
 var _ file.Store = (*FileStore)(nil)
 
-func (s *FileStore) Create(_ context.Context, m file.Meta) error {
-	return s.db.Create(&m).Error
+func (s *FileStore) Create(ctx context.Context, m file.Meta) error {
+	return s.db.WithContext(ctx).Create(&m).Error
 }
 
-func (s *FileStore) Delete(_ context.Context, id string) error {
-	res := s.db.Delete(&file.Meta{}, "id = ?", id)
+func (s *FileStore) Delete(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Delete(&file.Meta{}, "id = ?", id)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -34,9 +34,9 @@ func (s *FileStore) Delete(_ context.Context, id string) error {
 	return nil
 }
 
-func (s *FileStore) Get(_ context.Context, id string) (file.Meta, error) {
+func (s *FileStore) Get(ctx context.Context, id string) (file.Meta, error) {
 	var m file.Meta
-	err := s.db.First(&m, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&m, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return file.Meta{}, file.ErrNotFound
 	}
@@ -44,8 +44,8 @@ func (s *FileStore) Get(_ context.Context, id string) (file.Meta, error) {
 }
 
 // List 按创建时间倒序（上传列表最新在前）。
-func (s *FileStore) List(_ context.Context) ([]file.Meta, error) {
+func (s *FileStore) List(ctx context.Context) ([]file.Meta, error) {
 	var out []file.Meta
-	err := s.db.Order("created_at DESC").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("created_at DESC").Find(&out).Error
 	return list(out), err
 }

@@ -5,8 +5,6 @@ package contract
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,6 +13,7 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/audit"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
@@ -129,11 +128,7 @@ func (s *MemStore) ListExpiring(_ context.Context, before time.Time) ([]Contract
 	return out, nil
 }
 
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
-}
+func newID() string { return randutil.Hex16() }
 
 type Module struct {
 	store     Store
@@ -183,12 +178,12 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 	m.bootAdmin = a.Config().BootstrapAdminUsername
 
 	// 审批终态联动：通过→生效；驳回→退回。
-	wfm.(*workflow.Module).OnFinish(func(_ context.Context, in workflow.Instance) {
+	wfm.(*workflow.Module).OnFinish(func(ctx context.Context, in workflow.Instance) {
 		prefix := DefaultDefKey + "-"
 		if len(in.BusinessKey) <= len(prefix) || in.BusinessKey[:len(prefix)] != prefix {
 			return
 		}
-		c, err := m.store.Get(context.Background(), in.BusinessKey[len(prefix):])
+		c, err := m.store.Get(ctx, in.BusinessKey[len(prefix):])
 		if err != nil {
 			return
 		}
@@ -200,8 +195,8 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 		default:
 			return
 		}
-		_ = m.store.Update(context.Background(), c)
-		m.audit("contract."+c.Status, c.ID, "amount", c.Amount)
+		_ = m.store.Update(ctx, c)
+		m.audit(ctx, "contract."+c.Status, c.ID, "amount", c.Amount)
 	})
 
 	// 内置任务：每日扫描 30 天内到期合同，记入审计（督办依据）。
@@ -213,7 +208,7 @@ func (m *Module) Init(_ context.Context, a *app.App) error {
 				return "", err
 			}
 			for _, c := range expiring {
-				m.audit("contract.expiring", c.ID, "expire_date", c.ExpireDate.Format("2006-01-02"))
+				m.audit(ctx, "contract.expiring", c.ID, "expire_date", c.ExpireDate.Format("2006-01-02"))
 			}
 			return "expiring contracts: " + itoa(len(expiring)), nil
 		})
@@ -260,12 +255,12 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
-func (m *Module) audit(event, resource string, kv ...any) {
+func (m *Module) audit(ctx context.Context, event, resource string, kv ...any) {
 	if m.recorder == nil {
 		return
 	}
 	detail, _ := json.Marshal(map[string]any{"kv": kv})
-	_ = m.recorder.Record(context.Background(), audit.Event{
+	_ = m.recorder.Record(ctx, audit.Event{
 		Module: "contract", Event: event, Resource: resource, Detail: detail,
 		Time: time.Now().UTC(),
 	})
@@ -309,7 +304,7 @@ func (m *Module) create(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	m.audit("contract.created", c.ID, "party", c.Party, "amount", c.Amount)
+	m.audit(r.Context(), "contract.created", c.ID, "party", c.Party, "amount", c.Amount)
 	web.Created(w, c)
 }
 
@@ -366,7 +361,7 @@ func (m *Module) submit(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	m.audit("contract.submitted", c.ID, "wf", in.ID)
+	m.audit(r.Context(), "contract.submitted", c.ID, "wf", in.ID)
 	web.OK(w, c)
 }
 
@@ -385,6 +380,6 @@ func (m *Module) finish(w http.ResponseWriter, r *http.Request) {
 		web.Err(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	m.audit("contract.finished", c.ID)
+	m.audit(r.Context(), "contract.finished", c.ID)
 	web.OK(w, c)
 }

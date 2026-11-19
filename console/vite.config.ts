@@ -14,7 +14,17 @@ export default defineConfig({
     Components({ resolvers: [ElementPlusResolver({ importStyle: 'css' })] }),
   ],
   base: './',
-  build: { outDir: 'dist', emptyOutDir: true },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    // 生产加固：移除调试语句，防止开发者遗留 console 泄漏敏感信息。
+    // Vite 6 运行时仍消费 build.esbuild，但类型定义未导出该字段，
+    // 故用 @ts-expect-error 绕过；drop 仅作用于生产构建的 JS/TS 产物。
+    // @ts-expect-error Vite 6 runtime supports esbuild in build options
+    esbuild: { drop: ['console', 'debugger'] },
+    minify: 'esbuild',
+    sourcemap: false,
+  },
   server: {
     port: 5173,
     proxy: { '/api': 'http://localhost:8080' },

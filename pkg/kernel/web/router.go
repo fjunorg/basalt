@@ -25,14 +25,20 @@ type Router interface {
 	MountSPA(fsys fs.FS)
 }
 
-// NewRouter 构造 gin 底层的 Router。生产环境自动切换 ReleaseMode。
-// gin 要求中间件先于路由注册，因此 Recovery 在此挂载。
+// NewRouter 构造 gin 底层的 Router。生产环境自动切换 ReleaseMode，
+// 并挂载默认安全中间件（CSP / XFO / 限流）。gin 要求中间件先于路由注册，
+// 因此 Recovery、SecureHeaders、RateLimit 在此挂载。
 func NewRouter(prod bool) Router {
 	if prod {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	e := gin.New()
 	e.Use(gin.Recovery())
+	if prod {
+		e.Use(SecureHeaders())
+		// 生产默认：IP 每秒 100 次，突发 30（正常 API 调用充足，挡爆破）
+		e.Use(RateLimit(100, 30))
+	}
 	return &ginRouter{engine: e}
 }
 

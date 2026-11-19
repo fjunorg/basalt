@@ -11,7 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "1.7.0" // 由 -ldflags "-X main.version=..." 注入正式版本
+var version = "1.7.0"  // 由 -ldflags "-X main.version=..." 注入正式版本
+var embedHash = ""     // 由 -ldflags "-X main.embedHash=..." 注入 console/dist 产物总 hash
 
 func main() {
 	if err := newRootCmd().Execute(); err != nil {
@@ -37,6 +38,16 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print the basalt version",
 		Run: func(cmd *cobra.Command, _ []string) {
 			cmd.Println("basalt", version)
+			if embedHash != "" {
+				cmd.Println("console.embed:", embedHash)
+			}
 		},
 	}
 }
+
+// BinVersion 返回 ldflags 注入的版本号（healthz / 日志系统消费）。
+func BinVersion() string { return version }
+
+// BinEmbedHash 返回 ldflags 注入的 console/dist 产物 hash（healthz 消费，
+// 便于线上比对二进制是否与源码同步）。空字符串表示构建时未计算。
+func BinEmbedHash() string { return embedHash }

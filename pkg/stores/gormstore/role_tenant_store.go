@@ -15,42 +15,42 @@ import (
 
 type RoleStore struct{ db *gorm.DB }
 
-func (s *RoleStore) Create(_ context.Context, r identity.Role) error {
+func (s *RoleStore) Create(ctx context.Context, r identity.Role) error {
 	var cnt int64
-	if err := s.db.Model(&identity.Role{}).Where("code = ?", r.Code).Count(&cnt).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&identity.Role{}).Where("code = ?", r.Code).Count(&cnt).Error; err != nil {
 		return err
 	}
 	if cnt > 0 {
 		return identity.ErrRoleCodeTaken
 	}
-	return s.db.Create(&r).Error
+	return s.db.WithContext(ctx).Create(&r).Error
 }
 
-func (s *RoleStore) Get(_ context.Context, id string) (identity.Role, error) {
+func (s *RoleStore) Get(ctx context.Context, id string) (identity.Role, error) {
 	var r identity.Role
-	err := s.db.First(&r, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&r, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return identity.Role{}, identity.ErrRoleNotFound
 	}
 	return r, err
 }
 
-func (s *RoleStore) GetByCode(_ context.Context, code string) (identity.Role, error) {
+func (s *RoleStore) GetByCode(ctx context.Context, code string) (identity.Role, error) {
 	var r identity.Role
-	err := s.db.First(&r, "code = ?", code).Error
+	err := s.db.WithContext(ctx).First(&r, "code = ?", code).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return identity.Role{}, identity.ErrRoleNotFound
 	}
 	return r, err
 }
 
-func (s *RoleStore) List(_ context.Context) ([]identity.Role, error) {
+func (s *RoleStore) List(ctx context.Context) ([]identity.Role, error) {
 	var out []identity.Role
-	err := s.db.Order("code").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("code").Find(&out).Error
 	return list(out), err
 }
 
-func (s *RoleStore) Update(_ context.Context, r identity.Role) error {
+func (s *RoleStore) Update(ctx context.Context, r identity.Role) error {
 	// permissions/dept_ids 列手动序列化（map 更新不走 serializer，
 	// 见 UserStore.AssignRoles）。data_scope 为普通列直写。
 	b, err := json.Marshal(r.Permissions)
@@ -61,7 +61,7 @@ func (s *RoleStore) Update(_ context.Context, r identity.Role) error {
 	if err != nil {
 		return err
 	}
-	res := s.db.Model(&identity.Role{}).Where("id = ?", r.ID).
+	res := s.db.WithContext(ctx).Model(&identity.Role{}).Where("id = ?", r.ID).
 		Updates(map[string]any{
 			"code": r.Code, "name": r.Name, "permissions": string(b),
 			"data_scope": r.DataScope, "dept_ids": string(d),
@@ -75,8 +75,8 @@ func (s *RoleStore) Update(_ context.Context, r identity.Role) error {
 	return nil
 }
 
-func (s *RoleStore) Delete(_ context.Context, id string) error {
-	res := s.db.Delete(&identity.Role{}, "id = ?", id)
+func (s *RoleStore) Delete(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Delete(&identity.Role{}, "id = ?", id)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -90,34 +90,34 @@ func (s *RoleStore) Delete(_ context.Context, id string) error {
 
 type TenantStore struct{ db *gorm.DB }
 
-func (s *TenantStore) Create(_ context.Context, t tenant.Tenant) error {
+func (s *TenantStore) Create(ctx context.Context, t tenant.Tenant) error {
 	var cnt int64
-	if err := s.db.Model(&tenant.Tenant{}).Where("code = ?", t.Code).Count(&cnt).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&tenant.Tenant{}).Where("code = ?", t.Code).Count(&cnt).Error; err != nil {
 		return err
 	}
 	if cnt > 0 {
 		return tenant.ErrCodeTaken
 	}
-	return s.db.Create(&t).Error
+	return s.db.WithContext(ctx).Create(&t).Error
 }
 
-func (s *TenantStore) Get(_ context.Context, id string) (tenant.Tenant, error) {
+func (s *TenantStore) Get(ctx context.Context, id string) (tenant.Tenant, error) {
 	var t tenant.Tenant
-	err := s.db.First(&t, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&t, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return tenant.Tenant{}, tenant.ErrNotFound
 	}
 	return t, err
 }
 
-func (s *TenantStore) List(_ context.Context) ([]tenant.Tenant, error) {
+func (s *TenantStore) List(ctx context.Context) ([]tenant.Tenant, error) {
 	var out []tenant.Tenant
-	err := s.db.Order("code").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("code").Find(&out).Error
 	return list(out), err
 }
 
-func (s *TenantStore) Update(_ context.Context, t tenant.Tenant) error {
-	res := s.db.Model(&tenant.Tenant{}).Where("id = ?", t.ID).
+func (s *TenantStore) Update(ctx context.Context, t tenant.Tenant) error {
+	res := s.db.WithContext(ctx).Model(&tenant.Tenant{}).Where("id = ?", t.ID).
 		Updates(map[string]any{"code": t.Code, "name": t.Name, "status": t.Status, "isolation_mode": t.IsolationMode})
 	if res.Error != nil {
 		return res.Error

@@ -4,9 +4,12 @@ import { ElLoading } from 'element-plus'
 import 'element-plus/es/components/loading/style/css'
 import App from './App.vue'
 // Semi Design 视觉对齐层（token 单一来源，置于组件样式之后生效）：
-// 详见 src/styles/semi-tokens.css 头部注释（真源逐条标注）
+// 三层顺序：semi-tokens.css（--ape-* 真源 + --semi-*/--el-* 别名）
+//         → ape-theme.css（卡片/表格/按钮/页面头 观感层）
+//         → semi-interactions.css（EP 组件交互范式对齐）
+// 详见 src/styles/semi-tokens.css 头部注释
 import './styles/semi-tokens.css'
-// Semi 交互层定制（EP 组件交互范式对齐，纯表现层，依赖上面的 token）
+import './styles/ape-theme.css'
 import './styles/semi-interactions.css'
 import { api, token, perms, hasPerm, type MeInfo } from './api'
 

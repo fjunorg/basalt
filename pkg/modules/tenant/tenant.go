@@ -8,8 +8,6 @@ package tenant
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -17,6 +15,7 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 )
@@ -129,13 +128,7 @@ func ValidateIsolation(mode string) bool {
 	return mode == IsolationRow || mode == IsolationSharedDB || mode == IsolationDedicatedDB
 }
 
-func NewTenantID() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		panic("tenant: crypto/rand unavailable: " + err.Error())
-	}
-	return hex.EncodeToString(b)
-}
+func NewTenantID() string { return randutil.Hex16() }
 
 type Module struct {
 	store  TenantStore

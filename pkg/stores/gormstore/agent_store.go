@@ -18,27 +18,27 @@ type AgentStore struct{ db *gorm.DB }
 // 编译期接口对齐检查。
 var _ agent.Store = (*AgentStore)(nil)
 
-func (s *AgentStore) CreateDef(_ context.Context, d agent.Definition) error {
-	return s.db.Create(&d).Error
+func (s *AgentStore) CreateDef(ctx context.Context, d agent.Definition) error {
+	return s.db.WithContext(ctx).Create(&d).Error
 }
 
-func (s *AgentStore) GetDef(_ context.Context, id string) (agent.Definition, error) {
+func (s *AgentStore) GetDef(ctx context.Context, id string) (agent.Definition, error) {
 	var d agent.Definition
-	err := s.db.First(&d, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&d, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return agent.Definition{}, agent.ErrNotFound
 	}
 	return d, err
 }
 
-func (s *AgentStore) ListDefs(_ context.Context) ([]agent.Definition, error) {
+func (s *AgentStore) ListDefs(ctx context.Context) ([]agent.Definition, error) {
 	var out []agent.Definition
-	err := s.db.Order("created_at ASC").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("created_at ASC").Find(&out).Error
 	return list(out), err
 }
 
-func (s *AgentStore) UpdateDef(_ context.Context, d agent.Definition) error {
-	res := s.db.Model(&agent.Definition{}).Where("id = ?", d.ID).Updates(map[string]any{
+func (s *AgentStore) UpdateDef(ctx context.Context, d agent.Definition) error {
+	res := s.db.WithContext(ctx).Model(&agent.Definition{}).Where("id = ?", d.ID).Updates(map[string]any{
 		"name":            d.Name,
 		"description":     d.Description,
 		"system_prompt":   d.SystemPrompt,
@@ -59,36 +59,36 @@ func (s *AgentStore) UpdateDef(_ context.Context, d agent.Definition) error {
 }
 
 // DeleteDef 级联删除该定义的运行记录与消息历史（定义是强属主）。
-func (s *AgentStore) DeleteDef(_ context.Context, id string) error {
-	res := s.db.Where("id = ?", id).Delete(&agent.Definition{})
+func (s *AgentStore) DeleteDef(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&agent.Definition{})
 	if res.Error != nil {
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
 		return agent.ErrNotFound
 	}
-	if err := s.db.Where("agent_id = ?", id).Delete(&agent.Run{}).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("agent_id = ?", id).Delete(&agent.Run{}).Error; err != nil {
 		return err
 	}
-	return s.db.Where("run_id IN (SELECT id FROM agent_runs WHERE agent_id = ?)", id).
+	return s.db.WithContext(ctx).Where("run_id IN (SELECT id FROM agent_runs WHERE agent_id = ?)", id).
 		Delete(&agent.RunMessage{}).Error
 }
 
-func (s *AgentStore) CreateRun(_ context.Context, r agent.Run) error {
-	return s.db.Create(&r).Error
+func (s *AgentStore) CreateRun(ctx context.Context, r agent.Run) error {
+	return s.db.WithContext(ctx).Create(&r).Error
 }
 
-func (s *AgentStore) GetRun(_ context.Context, id string) (agent.Run, error) {
+func (s *AgentStore) GetRun(ctx context.Context, id string) (agent.Run, error) {
 	var r agent.Run
-	err := s.db.First(&r, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&r, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return agent.Run{}, agent.ErrNotFound
 	}
 	return r, err
 }
 
-func (s *AgentStore) UpdateRun(_ context.Context, r agent.Run) error {
-	res := s.db.Model(&agent.Run{}).Where("id = ?", r.ID).Updates(map[string]any{
+func (s *AgentStore) UpdateRun(ctx context.Context, r agent.Run) error {
+	res := s.db.WithContext(ctx).Model(&agent.Run{}).Where("id = ?", r.ID).Updates(map[string]any{
 		"status":       r.Status,
 		"output":       r.Output,
 		"rounds":       r.Rounds,
@@ -106,19 +106,19 @@ func (s *AgentStore) UpdateRun(_ context.Context, r agent.Run) error {
 }
 
 // ListRuns 按 started_at 倒序（最新在前，契约 §3.2）。
-func (s *AgentStore) ListRuns(_ context.Context, agentID string) ([]agent.Run, error) {
+func (s *AgentStore) ListRuns(ctx context.Context, agentID string) ([]agent.Run, error) {
 	var out []agent.Run
-	err := s.db.Where("agent_id = ?", agentID).Order("started_at DESC").Find(&out).Error
+	err := s.db.WithContext(ctx).Where("agent_id = ?", agentID).Order("started_at DESC").Find(&out).Error
 	return list(out), err
 }
 
-func (s *AgentStore) AppendMsg(_ context.Context, msg agent.RunMessage) error {
-	return s.db.Create(&msg).Error
+func (s *AgentStore) AppendMsg(ctx context.Context, msg agent.RunMessage) error {
+	return s.db.WithContext(ctx).Create(&msg).Error
 }
 
 // ListMsgs 按 seq 升序（对话时序）。
-func (s *AgentStore) ListMsgs(_ context.Context, runID string) ([]agent.RunMessage, error) {
+func (s *AgentStore) ListMsgs(ctx context.Context, runID string) ([]agent.RunMessage, error) {
 	var out []agent.RunMessage
-	err := s.db.Where("run_id = ?", runID).Order("seq ASC").Find(&out).Error
+	err := s.db.WithContext(ctx).Where("run_id = ?", runID).Order("seq ASC").Find(&out).Error
 	return list(out), err
 }

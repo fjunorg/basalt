@@ -5,8 +5,6 @@ package file
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +16,7 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
 )
@@ -155,11 +154,7 @@ func (l *LocalStorage) Remove(_ context.Context, rel string) error {
 // MaxUploadSize 上传大小上限（G 端合规默认 32MB）。
 const MaxUploadSize = 32 << 20
 
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
-}
+func newID() string { return randutil.Hex16() }
 
 // safeName 过滤路径穿越与控制字符。
 func safeName(name string) string {

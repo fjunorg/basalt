@@ -128,8 +128,8 @@ func TestServeSQLiteFullAssemblySmoke(t *testing.T) {
 	}
 
 	// 冒烟：健康端点 + 模块自描述面。
+	web.MountHealth(a.Router(), web.HealthOptions{Version: "smoke-test"})
 	h := a.Router().Handler()
-	web.MountHealth(a.Router())
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 	client := srv.Client()

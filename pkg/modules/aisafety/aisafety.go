@@ -12,8 +12,6 @@ package aisafety
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"sort"
 	"strings"
@@ -21,6 +19,7 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/ai/gateway"
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 )
 
 const Version = "0.1.0"
@@ -511,8 +510,4 @@ func (c *streamChecker) Finish() (string, *gateway.SafetyViolation) {
 	return filtered, viol
 }
 
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
-}
+func newID() string { return randutil.Hex16() }

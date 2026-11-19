@@ -57,9 +57,9 @@ if [ -s "$HITSFILE" ]; then
 fi
 
 echo
-echo "敏感信息扫描：$total 个候选文件，实际扫描 $files_scanned（豁免 fixture/演示文档/锁文件/产物）"
+echo "敏感信息扫描：${total} 个候选文件，实际扫描 ${files_scanned}（豁免 fixture/演示文档/锁文件/产物）"
 if [ "$hits" -gt 0 ]; then
-	echo "✗ 扫描未通过：$hits 处疑似泄漏（人工复核）"
+	echo "✗ 扫描未通过：${hits} 处疑似泄漏（人工复核）"
 	exit 1
 fi
 echo "✓ 敏感信息扫描通过（0 命中）"

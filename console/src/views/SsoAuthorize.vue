@@ -30,7 +30,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { api, ssoAuthorizeGet, errMsg, type SsoAuthorizeDesc } from '../api'
+import { api, ssoAuthorizeGet, errMsg, assertSafeRedirect, type SsoAuthorizeDesc } from '../api'
 
 // SSO 授权确认页（契约 §2）：三方应用引导用户到本页（携带 OAuth2 参数），
 // 前端渲染确认界面，approve/deny 后顶层跳转 redirect_to（非 iframe）。
@@ -68,7 +68,8 @@ async function decide(action: 'approve' | 'deny') {
       body,
     })
     // 契约 §2.2：前端职责为顶层跳转（deny 时 redirect_to 携带 error=access_denied）
-    window.location.href = d.redirect_to
+    // 双重兜底：后端已校验，但前端二次做 scheme 白名单防 open redirect
+    window.location.href = assertSafeRedirect(d.redirect_to)
   } catch (e) {
     errorText.value = errMsg(e)
     desc.value = null

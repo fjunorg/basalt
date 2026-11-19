@@ -15,9 +15,7 @@ package rag
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql/driver"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +28,7 @@ import (
 	"time"
 
 	"github.com/basalt-go/basalt/pkg/kernel/app"
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/modules/audit"
 	"github.com/basalt-go/basalt/pkg/modules/identity"
@@ -1107,8 +1106,4 @@ func (m *Module) record(ctx context.Context, actor, event, resource, detail stri
 	})
 }
 
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
-}
+func newID() string { return randutil.Hex16() }

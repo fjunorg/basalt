@@ -123,54 +123,54 @@ func (s *Stores) QuotaStore() (*QuotaStore, error) {
 
 type UserStore struct{ db *gorm.DB }
 
-func (s *UserStore) Create(_ context.Context, u identity.User) error {
+func (s *UserStore) Create(ctx context.Context, u identity.User) error {
 	var cnt int64
-	if err := s.db.Model(&identity.User{}).Where("username = ?", u.Username).Count(&cnt).Error; err != nil {
+	if err := s.db.WithContext(ctx).Model(&identity.User{}).Where("username = ?", u.Username).Count(&cnt).Error; err != nil {
 		return err
 	}
 	if cnt > 0 {
 		return identity.ErrUsernameTaken
 	}
-	return s.db.Create(&u).Error
+	return s.db.WithContext(ctx).Create(&u).Error
 }
 
-func (s *UserStore) Get(_ context.Context, id string) (identity.User, error) {
+func (s *UserStore) Get(ctx context.Context, id string) (identity.User, error) {
 	var u identity.User
-	err := s.db.First(&u, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&u, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return identity.User{}, identity.ErrUserNotFound
 	}
 	return u, err
 }
 
-func (s *UserStore) GetByUsername(_ context.Context, username string) (identity.User, error) {
+func (s *UserStore) GetByUsername(ctx context.Context, username string) (identity.User, error) {
 	var u identity.User
-	err := s.db.First(&u, "username = ?", username).Error
+	err := s.db.WithContext(ctx).First(&u, "username = ?", username).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return identity.User{}, identity.ErrUserNotFound
 	}
 	return u, err
 }
 
-func (s *UserStore) List(_ context.Context) ([]identity.User, error) {
+func (s *UserStore) List(ctx context.Context) ([]identity.User, error) {
 	var out []identity.User
-	err := s.db.Order("created_at").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("created_at").Find(&out).Error
 	return list(out), err
 }
 
 // ListByTenant 列出指定租户的用户；tenantID 为空串表示平台级用户
 // （与 identity.UserStore 接口语义一致，行级隔离读取路径）。
-func (s *UserStore) ListByTenant(_ context.Context, tenantID string) ([]identity.User, error) {
+func (s *UserStore) ListByTenant(ctx context.Context, tenantID string) ([]identity.User, error) {
 	var out []identity.User
-	err := s.db.Where("tenant_id = ?", tenantID).Order("created_at").Find(&out).Error
+	err := s.db.WithContext(ctx).Where("tenant_id = ?", tenantID).Order("created_at").Find(&out).Error
 	return list(out), err
 }
 
-func (s *UserStore) UpdateStatus(_ context.Context, id, status string) error {
+func (s *UserStore) UpdateStatus(ctx context.Context, id, status string) error {
 	if status != identity.StatusActive && status != identity.StatusDisabled {
 		return identity.ErrBadStatus
 	}
-	res := s.db.Model(&identity.User{}).Where("id = ?", id).Update("status", status)
+	res := s.db.WithContext(ctx).Model(&identity.User{}).Where("id = ?", id).Update("status", status)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -180,13 +180,13 @@ func (s *UserStore) UpdateStatus(_ context.Context, id, status string) error {
 	return nil
 }
 
-func (s *UserStore) AssignRoles(_ context.Context, userID string, roleIDs []string) error {
+func (s *UserStore) AssignRoles(ctx context.Context, userID string, roleIDs []string) error {
 	// serializer:json 仅在 struct 写入路径生效，单列 Update 需手动序列化。
 	b, err := json.Marshal(roleIDs)
 	if err != nil {
 		return err
 	}
-	res := s.db.Model(&identity.User{}).Where("id = ?", userID).
+	res := s.db.WithContext(ctx).Model(&identity.User{}).Where("id = ?", userID).
 		Update("role_ids", string(b))
 	if res.Error != nil {
 		return res.Error

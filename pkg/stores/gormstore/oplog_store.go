@@ -69,7 +69,7 @@ func (s *OpLogStore) Query(f oplog.QueryFilter) (oplog.PageResult, error) {
 }
 
 // CleanupBefore 按时间清理（运维定时任务可调；幂等）。
-func (s *OpLogStore) CleanupBefore(_ context.Context, t time.Time) (int64, error) {
-	res := s.db.Where("time < ?", t).Delete(&oplog.Entry{})
+func (s *OpLogStore) CleanupBefore(ctx context.Context, t time.Time) (int64, error) {
+	res := s.db.WithContext(ctx).Where("time < ?", t).Delete(&oplog.Entry{})
 	return res.RowsAffected, res.Error
 }

@@ -7,14 +7,13 @@ package identity
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
 	"io"
 	"net/http"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/basalt-go/basalt/pkg/kernel/crypto/randutil"
 	"github.com/basalt-go/basalt/pkg/kernel/web"
 	"github.com/basalt-go/basalt/pkg/kernel/xlsx"
 )
@@ -149,9 +148,7 @@ func (h *Handler) importOneUser(r *http.Request, row []string, get func([]string
 	}
 	pass := get(row, "password")
 	if pass == "" {
-		b := make([]byte, 6)
-		_, _ = rand.Read(b)
-		pass = "Basalt@" + hex.EncodeToString(b)
+		pass = "Basalt@" + randutil.Hex(6)
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
 	if err != nil {

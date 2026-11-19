@@ -11,6 +11,9 @@ coverage.out
 
 # ===== 前端 =====
 console/node_modules/
+# go:embed hash 守护基线（运行时写入，不应入库）
+console/.src-hash
+console/.dist-hash
 
 # ===== 运行时数据与敏感文件 =====
 uploads/

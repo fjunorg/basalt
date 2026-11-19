@@ -19,27 +19,27 @@ type RagStore struct{ db *gorm.DB }
 // 编译期接口对齐检查。
 var _ rag.Store = (*RagStore)(nil)
 
-func (s *RagStore) CreateKB(_ context.Context, kb rag.KnowledgeBase) error {
-	return s.db.Create(&kb).Error
+func (s *RagStore) CreateKB(ctx context.Context, kb rag.KnowledgeBase) error {
+	return s.db.WithContext(ctx).Create(&kb).Error
 }
 
-func (s *RagStore) GetKB(_ context.Context, id string) (rag.KnowledgeBase, error) {
+func (s *RagStore) GetKB(ctx context.Context, id string) (rag.KnowledgeBase, error) {
 	var kb rag.KnowledgeBase
-	err := s.db.First(&kb, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&kb, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return rag.KnowledgeBase{}, rag.ErrNotFound
 	}
 	return kb, err
 }
 
-func (s *RagStore) ListKBs(_ context.Context) ([]rag.KnowledgeBase, error) {
+func (s *RagStore) ListKBs(ctx context.Context) ([]rag.KnowledgeBase, error) {
 	var out []rag.KnowledgeBase
-	err := s.db.Order("created_at ASC").Find(&out).Error
+	err := s.db.WithContext(ctx).Order("created_at ASC").Find(&out).Error
 	return list(out), err
 }
 
-func (s *RagStore) UpdateKB(_ context.Context, kb rag.KnowledgeBase) error {
-	res := s.db.Model(&rag.KnowledgeBase{}).Where("id = ?", kb.ID).Updates(map[string]any{
+func (s *RagStore) UpdateKB(ctx context.Context, kb rag.KnowledgeBase) error {
+	res := s.db.WithContext(ctx).Model(&rag.KnowledgeBase{}).Where("id = ?", kb.ID).Updates(map[string]any{
 		"name":        kb.Name,
 		"description": kb.Description,
 		"strategy":    kb.Strategy,
@@ -55,41 +55,41 @@ func (s *RagStore) UpdateKB(_ context.Context, kb rag.KnowledgeBase) error {
 }
 
 // DeleteKB 级联删除库内文档与切片（库-文档-切片为强从属树）。
-func (s *RagStore) DeleteKB(_ context.Context, id string) error {
-	res := s.db.Where("id = ?", id).Delete(&rag.KnowledgeBase{})
+func (s *RagStore) DeleteKB(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&rag.KnowledgeBase{})
 	if res.Error != nil {
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
 		return rag.ErrNotFound
 	}
-	if err := s.db.Where("kb_id = ?", id).Delete(&rag.Document{}).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("kb_id = ?", id).Delete(&rag.Document{}).Error; err != nil {
 		return err
 	}
-	return s.db.Where("kb_id = ?", id).Delete(&rag.Chunk{}).Error
+	return s.db.WithContext(ctx).Where("kb_id = ?", id).Delete(&rag.Chunk{}).Error
 }
 
-func (s *RagStore) CreateDoc(_ context.Context, d rag.Document) error {
-	return s.db.Create(&d).Error
+func (s *RagStore) CreateDoc(ctx context.Context, d rag.Document) error {
+	return s.db.WithContext(ctx).Create(&d).Error
 }
 
-func (s *RagStore) GetDoc(_ context.Context, id string) (rag.Document, error) {
+func (s *RagStore) GetDoc(ctx context.Context, id string) (rag.Document, error) {
 	var d rag.Document
-	err := s.db.First(&d, "id = ?", id).Error
+	err := s.db.WithContext(ctx).First(&d, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return rag.Document{}, rag.ErrNotFound
 	}
 	return d, err
 }
 
-func (s *RagStore) ListDocs(_ context.Context, kbID string) ([]rag.Document, error) {
+func (s *RagStore) ListDocs(ctx context.Context, kbID string) ([]rag.Document, error) {
 	var out []rag.Document
-	err := s.db.Where("kb_id = ?", kbID).Order("created_at ASC").Find(&out).Error
+	err := s.db.WithContext(ctx).Where("kb_id = ?", kbID).Order("created_at ASC").Find(&out).Error
 	return list(out), err
 }
 
-func (s *RagStore) UpdateDoc(_ context.Context, d rag.Document) error {
-	res := s.db.Model(&rag.Document{}).Where("id = ?", d.ID).Updates(map[string]any{
+func (s *RagStore) UpdateDoc(ctx context.Context, d rag.Document) error {
+	res := s.db.WithContext(ctx).Model(&rag.Document{}).Where("id = ?", d.ID).Updates(map[string]any{
 		"status":      d.Status,
 		"chunk_count": d.ChunkCount,
 		"embed_model": d.EmbedModel,
@@ -106,15 +106,15 @@ func (s *RagStore) UpdateDoc(_ context.Context, d rag.Document) error {
 }
 
 // DeleteDoc 级联删除文档切片。
-func (s *RagStore) DeleteDoc(_ context.Context, id string) error {
-	res := s.db.Where("id = ?", id).Delete(&rag.Document{})
+func (s *RagStore) DeleteDoc(ctx context.Context, id string) error {
+	res := s.db.WithContext(ctx).Where("id = ?", id).Delete(&rag.Document{})
 	if res.Error != nil {
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
 		return rag.ErrNotFound
 	}
-	return s.db.Where("doc_id = ?", id).Delete(&rag.Chunk{}).Error
+	return s.db.WithContext(ctx).Where("doc_id = ?", id).Delete(&rag.Chunk{}).Error
 }
 
 // ReplaceChunks 重切替换：单事务内先清该文档旧切片再写新切片。
@@ -137,15 +137,15 @@ func (s *RagStore) ReplaceChunks(ctx context.Context, chunks []rag.Chunk) error 
 	})
 }
 
-func (s *RagStore) ListChunks(_ context.Context, docID string) ([]rag.Chunk, error) {
+func (s *RagStore) ListChunks(ctx context.Context, docID string) ([]rag.Chunk, error) {
 	var out []rag.Chunk
-	err := s.db.Where("doc_id = ?", docID).Order("seq ASC").Find(&out).Error
+	err := s.db.WithContext(ctx).Where("doc_id = ?", docID).Order("seq ASC").Find(&out).Error
 	return list(out), err
 }
 
 // VectorsOfKB 只取已向量化切片（embedding blob 非空）。
-func (s *RagStore) VectorsOfKB(_ context.Context, kbID string) ([]rag.Chunk, error) {
+func (s *RagStore) VectorsOfKB(ctx context.Context, kbID string) ([]rag.Chunk, error) {
 	var out []rag.Chunk
-	err := s.db.Where("kb_id = ? AND embedding IS NOT NULL", kbID).Find(&out).Error
+	err := s.db.WithContext(ctx).Where("kb_id = ? AND embedding IS NOT NULL", kbID).Find(&out).Error
 	return list(out), err
 }
