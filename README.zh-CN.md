@@ -1,162 +1,160 @@
-# Basalt（玄武）
+# 玄武 · Basalt
 
-> 纯 Go · 纯开源 · AI 原生 · 面向 ToB/ToG 的通用后端平台框架
-> Pure-Go, fully open-source (Apache-2.0), AI-native backend platform framework for B2B & GovTech — [English](README.md)
+> **为 B 端和政务场景打造的 AI 原生后端平台** —— 纯 Go · 单静态二进制 · Apache-2.0
+> [English](README.md) · [文档](docs/) · [更新日志](CHANGELOG.md)
 
-> **命名说明**：仓库所在目录名为 `AiGoAdmin`（历史工作代号）；项目正式名称为 **Basalt（玄武）**，Go module `github.com/basalt-go/basalt`——文档与发布物统一以 Basalt 为准。
+> **命名说明**：仓库目录名 `AiGoAdmin` 为历史开发代号，项目正式名称为 **玄武 Basalt**，Go module 为 `github.com/basalt-go/basalt`。
 
-![Status](https://img.shields.io/badge/release-v1.7.0-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Go](https://img.shields.io/badge/go-1.26%2B-00ADD8) ![Tests](https://img.shields.io/badge/tests-race--enabled-green)
+[![Release](https://img.shields.io/badge/release-v1.7.0-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-blue) ![Go](https://img.shields.io/badge/go-1.26%2B-00ADD8) ![Tests](https://img.shields.io/badge/tests-race--enabled-green)](https://github.com/basalt-go/basalt/releases)
 
-## 五分钟上手
+---
+
+## 可视化速览
+
+<p align="center">
+  <a href="docs/assets/screenshots/login.png" title="登录页 · 左品牌渐变 + 右表单">
+    <img src="docs/assets/screenshots/login.png" width="400" alt="登录页" />
+  </a>
+  <a href="docs/assets/screenshots/dashboard.png" title="概览页 · 4 张统计卡 + 页头">
+    <img src="docs/assets/screenshots/dashboard.png" width="400" alt="概览" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="docs/assets/screenshots/ai-console.png" title="AI 控制台 · 对话 + SSE 流式 + RAG">
+    <img src="docs/assets/screenshots/ai-console.png" width="260" alt="AI 控制台" />
+  </a>
+  <a href="docs/assets/screenshots/approvals.png" title="审批流 · 条件网关 + 并行网关">
+    <img src="docs/assets/screenshots/approvals.png" width="260" alt="审批" />
+  </a>
+  <a href="docs/assets/screenshots/users.png" title="用户管理 · RBAC + 数据权限范围">
+    <img src="docs/assets/screenshots/users.png" width="260" alt="用户" />
+  </a>
+</p>
+
+---
+
+## 为什么选择 Basalt
+
+| 差异化能力 | 你得到什么 |
+|-----------|-----------|
+| **AI 治理原生内建** | OpenAI 兼容网关 + 租户级月度 Token 配额 + 原子化计量 + 完整 AI 调用审计 + 内容安全（拒绝 / 替换 / 标记）——治理就是骨架，不是外挂 |
+| **默认合规** | 防篡改审计链（链式哈希 + SM2 链头签名对抗全历史重算），SM3 摘要 + SM2 签名（GB/T 32905 + GB/T 32918.2）含官方测试向量校验，`secure --check` 合规自检 |
+| **信创就绪** | CI 交叉编译覆盖麒麟 / UOS + 鲲鹏 arm64 + 龙芯 loong64；DM / openGauss / OceanBase 通过 OpenDB 注入缝接入；纯 Go 无 CGO SQLite，离线环境单二进制交付 |
+| **租户数据库隔离** | 行级隔离 + **独立库模式**：请求级路由将 14 个业务模块分发到各租户专属 DB，凭证走环境变量（不入库），严格 fail-closed 语义 |
+| **Agent + RAG 开箱即用** | 轻量 Agent 编排（定义 → 运行 → 工具循环 → SSE 事件），LLM 调用统一走网关（配额 / 安全 / 计量 / 审计），RAG 检索为内建工具 |
+| **单二进制交付** | 管理台（Vue 3 + TypeScript + Element Plus）通过 `go:embed` 嵌入 —— 一个可执行文件，生产环境无 JVM、无 Node 运行时 |
+| **纯开源** | 所有功能统一 Apache-2.0 许可证，无"商业版"私有功能 —— 见 [开源永恒承诺](OPEN_SOURCE_PLEDGE.md) |
+
+---
+
+## 快速开始（5 分钟）
 
 ```bash
-# 要求 Go >= 1.26
+# 前置：Go >= 1.26
 make build
 
-# 演示数据集初始化（幂等，仅 sqlite；prod 环境拒绝执行，--force 显式覆盖）：
-#   组织三级部门树、数据权限各档角色、6 个跨部门用户、字典、公告、
-#   示例租户+套餐、财务/公文/合同、知识库、Agent 定义、通知模板、两步审批流。
-#   演示账号统一口令 Demo@2026：demo-ceo / demo-dev / demo-sale /
-#   demo-viewer / demo-fin / demo-tenant
+# 初始化 demo 数据（幂等、仅 sqlite；prod 模式需 --force）
+#   组织树 · 数据权限角色 · 6 个跨部门用户 · 字典 · 公告
+#   租户 + 套餐 · 财务/文档/合同 · 知识库 · Agent 定义
+#   通知模板 · 两步审批流
+#   demo 账号默认密码 Demo@2026：
+#   demo-ceo / demo-dev / demo-sale / demo-viewer / demo-fin / demo-tenant
 BASALT_STORAGE=sqlite BASALT_DB_DSN=/tmp/basalt.db ./bin/basalt seed --demo
 
-# 启动服务，浏览器打开 http://localhost:8080，demo-ceo / Demo@2026 登录
+# 启动 → http://localhost:8080，使用 demo-ceo / Demo@2026 登录
 BASALT_STORAGE=sqlite BASALT_DB_DSN=/tmp/basalt.db ./bin/basalt serve
 ```
 
-首启引导管理员为 `admin / Basalt@2026`（**生产环境必须显式覆盖**——prod 守卫拒绝默认凭据启动）。
+首次启动引导管理员账号 `admin / Basalt@2026`（**生产模式强制用环境变量覆盖默认凭据，prod guard 拒绝默认凭据**）。
 
-生产形态推荐（持久化 + 国密审计链 + AI 接入）：
+生产部署拓扑：
 
 ```bash
-BASALT_STORAGE=sqlite \                      # 全部 22 模块落盘（含审批流、通知与动态菜单）
+BASALT_STORAGE=sqlite \                      # 22 个模块持久化（含 workflow、notify、menus）
 BASALT_DB_DSN=/var/lib/basalt/basalt.db \
-BASALT_CRYPTO_ALGO=sm3 \                     # 审计链切换国密 SM3
+BASALT_CRYPTO_ALGO=sm3 \                     # 审计链摘要 → SM3
 BASALT_AI_PROVIDER_URL=http://vllm:8000 \    # 任意 OpenAI 兼容端点
 BASALT_AI_PROVIDER_KEY=sk-xxx \
   basalt serve --env prod
 ```
 
-生产部署（单二进制 / Docker 容器两条路径）与环境变量清单（26 项，含用途与默认值）见 [docs/deploy.md](docs/deploy.md) 与 [.env.example](.env.example)。
+单二进制 / Docker 部署指南 + 完整环境变量参考（26 个）见 [docs/deploy.md](docs/deploy.md) 和 [.env.example](.env.example)。
 
-### 前端构建说明（console/dist 已入库）
-
-`console/dist` 为**有意提交**的前端构建产物：`go:embed`（见 `console/embed.go`）依赖它，保证 `go build` 即得带 UI 的单文件二进制——这是信创离线单文件交付的硬约束。修改 `console/` 源码后需重新构建并随源码一并提交：
-
-```bash
-cd console && npm install && npm run build
-```
-
-## 已交付模块（API-first，单体形态）
-
-| 层 | 模块 | 能力 | 版本 |
-|----|------|------|------|
-| L0 | kernel | 模块系统（依赖拓扑/生命周期）、gin Router 抽象、配置、slog、OTel 可观测、**国密 Provider**（SM3 摘要 GB/T 32905 + SM2 签名 GB/T 32918.2，官方向量验证）、**数据权限 Scope 模型**、CLI（serve/version/new/secure/seed） | ✅ |
-| L1 | identity | 用户/角色 RBAC、bcrypt、JWT（jti + 会话注册表 + 踢下线）、权限点中间件（通配）、**OAuth2 2.1/SSO 应用管理（PKCE/客户端凭证/轮换刷新/钉钉三方登录）**、**角色数据权限五档（all/dept/dept_and_below/self/custom）**、幂等引导管理员、prod 安全守卫 | v0.3 |
-| L1 | tenant | 租户 CRUD、租户上下文实时解析、行级隔离；v1.4.0 起 dedicated-db 库级隔离（v1.6.0 扩至 14 个业务模块请求级路由，平台级模块固定主库，见 [docs/tenant-isolation.md](docs/tenant-isolation.md)） | v0.2 |
-| L1 | audit | **防篡改审计链**（链式哈希防单点篡改、链尾 SM2 签名防整库重算伪造历史、篡改定位、算法切换多算法逐段核验、GORM 持久化重启续链、SM3 可选） | v0.2 |
-| L1 | workflow | 轻量审批流（会签/或签/**依次审批**、待办、守卫、**抄送/转办/委派/加签/驳回至节点（轮次机制）**；实例与定义 GORM 持久化、重启恢复） | v0.2 |
-| L1 | org | 组织架构（部门树 + 岗位；树级数据权限裁剪接入） | v0.1 |
-| L1 | dict | 数据字典（字典类型 + 数据项，表单下拉/枚举统一维护） | v0.1 |
-| L1 | sysconfig | 参数配置（运行期动态 KV，登录级只读） | v0.1 |
-| L1 | notice | 通知公告（草稿/发布/全员已读视图） | v0.1 |
-| L1 | **notify** | **通知中心**（短信/邮件/站内信三渠道；模板渲染、凭据环境变量注入不落库、发送日志、站内信收件箱、阿里云短信自研签名/SMTP 零新依赖） | v0.1 |
-| L1 | **menu** | **动态菜单**（菜单 CRUD + 角色绑定 + 按权限过滤的菜单树下发，API 空时前端回退静态映射；种子三分组 IA） | v0.1 |
-| L1 | **tenantpkg** | **租户套餐**（菜单/权限集合模板 CRUD + 租户绑定 + PermFilter 单点裁剪，与动态菜单自动联动） | v0.1 |
-| L1 | **errcode** | **错误码管理**（注册表 CRUD + 现有模块错误码种子） | v0.1 |
-| L1 | file | 文件管理（本地上传/下载/列表；v1.7.0 起 **S3 兼容多云存储**——自研 SigV4 零 SDK 依赖，MinIO/OSS/COS，混合存量路由与预签名直链，见 [docs/file-s3.md](docs/file-s3.md)） | v0.1 |
-| L1 | job | 轻量任务调度（间隔 + **cron 表达式双模式**、启停/手动触发、**在线动态 HTTP 任务**、执行日志持久化查询，重启恢复含 NextRun 重算） | v0.1 |
-| L1 | finance | 财务业务（报销/付款/发票登记/部门预算，审批联动与预算预检；部门+申请人双维数据权限接入） | v0.1 |
-| L1 | document | 公文流转（收发文登记、密级缓急、审批联动、归档；拟稿部门数据权限接入） | v0.1 |
-| L1 | contract | 合同管理（登记/审批联动/生效完结 + 到期扫描督办） | v0.1 |
-| L1 | **oplog** | **操作/API 日志与运行监控**（异步采集不阻塞请求、用户字段完整验签、BASALT_OPLOG_MODE 采样、日志分页过滤 + 90 秒滑动窗口 QPS/错误率指标） | v0.1 |
-| L2 | ai-gateway | **OpenAI 兼容模型网关** + **SSE 流式**（include_usage 记账）+ 租户**月度账期**配额（持久化原子记账）+ 调用审计；v1.2.0 起集成内容安全审核 | v0.2 |
-| L2 | ai-safety | **AI 内容安全**（敏感词库、租户可配策略、调用链审核：reject/replace/mark，默认从严回落） | v0.1 |
-| L2 | rag | **知识库与检索增强**（库/文档/切片/向量化/相似检索；OpenAI 兼容 embeddings，sqlite blob 向量起步，VectorSearcher 接口预留专用向量库） | v0.1 |
-| L2 | agent | **轻量 Agent 编排**（定义/运行/工具调用循环/SSE 运行事件；LLM 经 ai-gateway 全链路，内置 RAG 检索工具；自研循环不引 Eino，ToolRegistry 预留生态对接） | v0.1 |
-| — | stores | GORM 持久化（SQLite 无 CGO，sqlite 装配下覆盖全部 22 个模块；openGauss-postgres 分支占位，达梦/OceanBase 经 OpenDB 注入） | v0.1 |
-| L3 | console | Admin Console（Vue3 + TypeScript + Element Plus 按需导入，32 视图：RBAC/**动态菜单（后端下发+静态回退）**/租户隔离与套餐/审批/审计链/AI 对话/Agent/通知中心/SSO/在线用户/错误码 + 业务模块管理页，Semi Design 视觉，go:embed 单二进制） | v0.1 |
-
-> 平台业务模块（L1）与 AI 基础设施模块（L2）均具备 GORM 持久化与内存零依赖两条装配路径（`BASALT_STORAGE=sqlite|memory`，serve 层全装配冒烟测试锁定）；版本明细见 [CHANGELOG](CHANGELOG.md)。
-
-> 后续路线：gRPC/服务治理、SM4/GMTLS（已提前交付：Admin Console v1.1.0、RAG 与内容安全 v1.2.0、Agent 编排与 dedicated-db 隔离 v1.3.0、SM2 签名 v1.4.0、P0 平台完备性批次 v1.6.0、P1a 效率批次 v1.7.0）；shared-db 隔离与支付系统经评估不自研（见 [docs/tenant-isolation.md](docs/tenant-isolation.md) §4 与 CHANGELOG 战略决策记录）。详见 [CHANGELOG](CHANGELOG.md)。
-
-## CLI 命令
-
-| 命令 | 说明 |
-|------|------|
-| `basalt serve` | 启动 HTTP 服务（`--addr` / `--env dev\|test\|staging\|prod`） |
-| `basalt version` | 打印版本 |
-| `basalt new module <name>` | 生成模块脚手架 |
-| `basalt seed --demo` | 演示数据集初始化（幂等）：组织三级部门树/跨部门角色用户/数据权限各档角色/字典/多状态公告/示例租户+套餐绑定/财务单据/公文合同/知识库/Agent 定义/通知模板/演示审批流。**prod 环境拒绝执行**（`--force` 显式覆盖）；仅 sqlite 存储；重复执行数据量不变。演示账号统一口令 `Demo@2026`（demo-ceo / demo-dev / demo-sale / demo-viewer / demo-fin / demo-tenant） |
-| `basalt secure --check` | 等保基线自查：七项检查（凭据默认值/加密算法合规/上传目录/审计链完整性/租户隔离开关/密钥暴露面/SSO 与三方登录密钥），三态 PASS/WARN/FAIL；退出码 **0=全过 / 1=有 WARN / 2=有 FAIL**（CI 可直接消费） |
+---
 
 ## 架构
 
 ```
-L3  前端控制台（Vue3 + TS + Element Plus 按需导入，go:embed 嵌入）  console/
-L2  AI 基础设施：模型网关 · 配额 · 审计 · 内容安全 · RAG · Agent（已交付）  pkg/ai/ + pkg/modules/
-L1  平台业务：身份 · 多租户 · 工作流 · 审计 · 业务模块群（组织/字典/参数/
-    通知/文件/任务/财务/公文/合同）（可插拔模块）           pkg/modules/
-L0  内核：HTTP · 配置 · 日志 · 服务治理 · 国密 · CLI        pkg/kernel/
-横切 信创适配（麒麟/龙芯/鲲鹏 · 达梦/openGauss）· 部署 · 安全
+L3  管理台（Vue3 + TS + Element Plus，go:embed 嵌入）          console/
+L2  AI 网关 · 配额 · 审计 · 安全 · RAG · Agent  pkg/ai/ + pkg/modules/
+L1  身份 · 租户 · 工作流 · 审计 · 业务套件       pkg/modules/
+L0  HTTP · 配置 · 日志 · SM 国密 · CLI           pkg/kernel/
+    横切：信创 · 部署 · 安全
 ```
 
-详见 [docs/01-architecture.md](docs/01-architecture.md)。
+详细说明见 [docs/01-architecture.md](docs/01-architecture.md)。
 
-## 编写一个模块
+---
 
-```go
-type Hello struct{}
+## 模块一览
 
-func (*Hello) Name() string           { return "hello" }
-func (*Hello) Version() string        { return "0.1.0" }
-func (*Hello) Dependencies() []string { return nil }
+所有模块提供 **两种装配路径** —— GORM 持久化（sqlite）和内存零依赖模式（`BASALT_STORAGE=sqlite|memory`）—— 由 serve 级全装配冒烟测试锁定。
 
-func (*Hello) Init(_ context.Context, a *app.App) error {
-    a.Mux().HandleFunc("GET /api/v1/hello", func(w http.ResponseWriter, _ *http.Request) {
-        web.OK(w, map[string]string{"msg": "hello"})
-    })
-    return nil
-}
-func (*Hello) Start(context.Context) error { return nil }
-func (*Hello) Stop(context.Context) error  { return nil }
+| 层 | 模块 | 能力 | 版本 |
+|----|------|------|------|
+| L0 | kernel | 模块系统（依赖拓扑生命周期）、gin 路由抽象、配置、slog、OTel 可观测、**SM2/SM3 国密提供者**（官方测试向量）、数据权限范围模型、CLI（serve/version/new/secure） | ✅ |
+| L1 | identity | 用户/角色 RBAC、bcrypt、JWT（jti + 会话注册表 + 强制下线）、通配权限中间件、**OAuth2 2.1 / SSO 应用管理**（PKCE、client credentials、轮转 refresh、钉钉社交登录）、**角色数据范围（5 级）**、幂等管理员引导、prod 凭据守卫 | v0.3 |
+| L1 | tenant | 租户 CRUD、请求级租户上下文、行级隔离；**独立库模式** —— 14 个业务模块按请求路由，平台模块固定主库 ([docs](docs/tenant-isolation.md)) | v0.2 |
+| L1 | audit | **防篡改审计链** —— 链式哈希、链头 SM2 签名对抗全历史重算、精确篡改定位、多算法切换验证、GORM 持久化 + 重启续链 | v0.2 |
+| L1 | workflow | 轻量审批流：count/or-sign、**顺序审批**、委派/转交/加签、驳回至节点支持 round 语义、抄送；定义与实例持久化 | v0.2 |
+| L1 | org / dict / sysconfig / notice | 组织树 + 岗位（数据权限自动裁剪）、字典、运行时 KV 配置、公告 | v0.1 |
+| L1 | **notify** | 通知中心：短信 / 邮件 / 站内信；模板渲染、凭证走环境变量（不入库）、发送日志；自实现阿里云 SMS 签名、SMTP 零新增依赖 | v0.1 |
+| L1 | **menu** | 动态菜单：CRUD + 角色绑定 + 权限过滤树 API，空载荷时静态兜底 | v0.1 |
+| L1 | **tenantpkg** | 租户套餐：菜单/权限模板、绑定、单点权限裁剪（接入 menus） | v0.1 |
+| L1 | **errcode** | 错误码注册表（种子化模块代码） | v0.1 |
+| L1 | file | **S3 兼容多云驱动** —— 自实现 SigV4（零 SDK 依赖）、MinIO/OSS/COS、老路径混合路由、预签名 URL ([docs](docs/file-s3.md)) | v0.1 |
+| L1 | job | 调度器：interval + **cron 表达式**、动态 HTTP 回调任务、持久化运行日志、重启恢复 | v0.1 |
+| L1 | finance / document / contract | 费用/付款/发票/预算（与审批联动、数据权限过滤）、公文流程（G2B 公章场景）、合同生命周期 + 到期扫描 | v0.1 |
+| L1 | **oplog** | 操作/API 日志 + 运行时指标 —— 异步非阻塞采集、已验证用户归属、采样模式、分页过滤 + 90s 滑窗 QPS/错误率 | v0.1 |
+| L2 | ai-gateway | **OpenAI 兼容模型网关** + SSE 流式（含 include_usage 计量）+ 租户月度配额（原子持久化计量）+ 调用审计；内容安全自 v1.2.0 集成 | v0.2 |
+| L2 | ai-safety | **AI 内容安全**：敏感词库、每租户策略、严格默认兜底下的 reject/replace/mark | v0.1 |
+| L2 | rag | 知识库 → 文档 → 分块 → Embedding → 相似度检索；OpenAI 兼容 Embedding，sqlite Blob 向量起步，VectorSearcher 注入缝预留独立向量库 | v0.1 |
+| L2 | agent | **轻量 Agent 编排**：定义 → 运行 → 工具循环 → SSE 事件；LLM 始终走网关、RAG 检索为内建工具、ToolRegistry 注入缝预留生态工具 | v0.1 |
+| L3 | console | 管理台：Vue 3 + TS + Element Plus（按需导入）、32 个视图 —— RBAC、动态菜单、租户隔离与套餐、审批、审计链、AI 对话、Agent、通知中心、SSO、会话、错误码、业务模块；go:embed 嵌入 | v0.1 |
 
-// 注册：a.Registry().Register(&Hello{})
-```
+版本细节与战略决策见 [CHANGELOG](CHANGELOG.md)。
 
-模块经 Registry 做依赖拓扑排序，Init/Start 正序、Stop 逆序驱动——这是 Basalt 可插拔架构的核心机制（`pkg/kernel/app`）。
+---
 
 ## 文档索引
 
 | 文档 | 内容 |
 |------|------|
-| [CHANGELOG](CHANGELOG.md) | 版本历史（v1.0.0 → v1.7.0）、逐模块版本与战略决策 |
+| [CHANGELOG](CHANGELOG.md) | 版本历史（v1.0.0 → v1.7.0）、模块版本、战略决策 |
 | [docs/01-architecture.md](docs/01-architecture.md) | 分层架构与设计决策 |
-| [docs/02-oss-governance.md](docs/02-oss-governance.md) | 开源治理与依赖政策 |
-| [docs/03-gap-analysis.md](docs/03-gap-analysis.md) | 竞品差距分析（芋道 × Spring AI × Eino） |
-| [docs/04-frontend-ui-evaluation.md](docs/04-frontend-ui-evaluation.md) | 前端技术选型评估 |
-| [docs/deploy.md](docs/deploy.md) | 部署指南（单二进制与 Docker） |
-| [docs/tenant-isolation.md](docs/tenant-isolation.md) | 租户库隔离：模式、边界与运维手册 |
-| [docs/file-s3.md](docs/file-s3.md) | S3 兼容存储：矩阵、混合路由与隔离 |
-| [docs/sm2-ops.md](docs/sm2-ops.md) | SM2 链尾签名运维 |
+| [docs/02-oss-governance.md](docs/02-oss-governance.md) | 开源治理与依赖策略 |
+| [docs/03-gap-analysis.md](docs/03-gap-analysis.md) | 竞品差距分析（对比 yudao × Spring AI × Eino） |
+| [docs/deploy.md](docs/deploy.md) | 部署指南（单二进制 / Docker） |
+| [docs/tenant-isolation.md](docs/tenant-isolation.md) | 租户 DB 隔离：模式、边界、运维 runbook |
+| [docs/file-s3.md](docs/file-s3.md) | S3 兼容存储：矩阵、混合路由、隔离 |
+| [docs/sm2-ops.md](docs/sm2-ops.md) | SM2 链头签名运维 |
+
+## CLI
+
+| 命令 | 说明 |
+|------|------|
+| `basalt serve` | 启动 HTTP 服务（`--addr`、`--env dev\|test\|staging\|prod`） |
+| `basalt version` | 打印版本 |
+| `basalt new module <name>` | 脚手架新模块 |
+| `basalt seed --demo` | 幂等 demo 数据；prod 拒绝（`--force` 覆盖）；仅 sqlite；密码 `Demo@2026` |
+| `basalt secure --check` | 合规自检：7 项检查，PASS/WARN/FAIL 裁定；退出码 **0/1/2**（CI 友好） |
 
 ## 路线图
 
-| 里程碑 | 周期 | 交付 |
-|--------|------|------|
-| M1 | 0–3 月 | 内核完善（gin/cobra/otel/国密）+ 身份/多租户实装 + CLI 脚手架 |
-| M2 | 3–6 月 | 轻量审批工作流 + 防篡改审计 + AI 网关与配额 |
-| M3 | 6–12 月 | 已全部提前交付：Admin Console（v1.1.0）、RAG 与内容安全（v1.2.0）、Agent 编排（v1.3.0，自研轻量实现而非集成 Eino） |
+M1–M3 里程碑全部提前交付：管理台（v1.1.0）、RAG 与内容安全（v1.2.0）、Agent 编排与独立库隔离（v1.3.0）、SM2 链头签名（v1.4.0）、P0 平台完备性批次 —— notify / 数据权限 / OAuth2+SSO / 动态菜单 / job cron / 会话 / tenant pkg / errcode（v1.6.0）、P1a 效率批次（v1.7.0）。下一阶段：gRPC/服务治理、SM4/GMTLS。共享库隔离和支付是刻意放弃的方向。
 
-## 参与
+## License
 
-- 贡献指南：[CONTRIBUTING.md](CONTRIBUTING.md)（DCO 签名必需）
-- 安全漏洞：[SECURITY.md](SECURITY.md)（**请勿在公开 issue 报告安全问题**）
-- 社区治理：[GOVERNANCE.md](GOVERNANCE.md)
-- 行为准则：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-
-## 许可
-
-[Apache License 2.0](LICENSE) · 版权所有 The Basalt Authors。
-"Basalt" 名称与徽标为项目商标，不随代码许可授予。
+[Apache License 2.0](LICENSE) · Copyright The Basalt Authors.
+"Basalt" 名称与 Logo 为项目商标，不随代码许可证授权。
